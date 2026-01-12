@@ -19,13 +19,6 @@ The goal of EWTS is **clarity, portability, and predictability**, not feature bl
 ---
 
 ## Repository Structure
-ewts/
-├── python/ # Python package (pip-installable)
-├── cpp/ # C++ library (CMake)
-├── c/ # C library (CMake)
-├── fortran/ # Fortran module (CMake)
-├── docs/ # Cross-language documentation
-└── LICENSE
 The repository contains the following directories:
 
 - python/     : Python package, pip-installable
@@ -43,15 +36,14 @@ Located in python/ewts.
 
 ### Install (from Git):
 
-    pip install git+https://github.com/YOUR_ORG/ewts.git#subdirectory=python
+    pip install git+https://github.com/NGWPC/nwm-ewts.git#subdirectory=python
 
 ### Usage:
-
-    from ewts.logger import get_logger
-
-    log = get_logger("example")
-    log.info("Hello from EWTS")
-
+```
+from ewts.logger import configure_logger
+LOG = configure_logger("LSTM")
+LOG.info("Hello from EWTS")
+```
 ### Development:
 
     cd python/ewts
@@ -64,18 +56,23 @@ Located in cpp/.
 
 ### Usage with CMake FetchContent:
 ```
-    include(FetchContent)
+include(FetchContent)
 
-    FetchContent_Declare(
-        ewts
-        GIT_REPOSITORY https://github.com/YOUR_ORG/ewts.git
-        GIT_TAG v1.0.0
-        SOURCE_SUBDIR cpp
-    )
+FetchContent_Declare(
+    ewts
+    GIT_REPOSITORY https://github.com/NGWPC/nmm-ewts.git
+    GIT_TAG v1.0.0
+    SOURCE_SUBDIR cpp
+)
 
-    FetchContent_MakeAvailable(ewts)
+FetchContent_MakeAvailable(ewts)
 
-    target_link_libraries(my_app PRIVATE ewts::logger)
+target_link_libraries(my_app PRIVATE ewts::logger)
+```
+### Usage:
+```
+#include <ewts/logger.hpp>
+
 ```
 ## C
 
@@ -83,10 +80,8 @@ Located in c/.
 
 ### Usage:
 ```
-    #include <ewts/logger.h>
+#include <ewts/logger.h>
 
-    ewts_logger_init();
-    ewts_logger_info("Hello from EWTS");
 ```
 ## Fortran
 
@@ -94,9 +89,9 @@ Located in fortran/.
 
 Usage:
 ```
-    use ewts_logger
-    call log_info("Hello from EWTS")
+use ewts_logger
 ```
+
 # Design Philosophy
 -----------------
 
@@ -114,9 +109,4 @@ This project is licensed under the terms of the LICENSE file.
 ------
 
 EWTS is under active development. APIs are stabilizing but may change prior to a 1.0 release.
-"""
-
-# Write to file
-with open("README.md", "w") as f:
-    f.write(readme_content)
 
