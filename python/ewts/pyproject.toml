@@ -3,7 +3,16 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "troute-ewts"
-version = "0.1.0"
-description = "EWTS helper package for T-Route"
-requires-python = ">=3.6"
+name = "ewts"
+version = "3.1.0.1.0"  # 3.1 required by OWP, followed by major.minor.patch pattern
+description = "Error, Warning and Trapping System package"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

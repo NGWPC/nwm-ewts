@@ -32,3 +32,10 @@ from .constants import MODULE_NAME
 from .config import configure_logging
 
 __all__ = ["MODULE_NAME", "configure_logging"]
+
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("ewts")
+except PackageNotFoundError:  # pragma: no cover
+    __version__ = "0.0.0"
