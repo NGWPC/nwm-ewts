@@ -1,0 +1,50 @@
+version: 1
+modules:
+  - key: ngen
+    ewts_id: NGEN
+    description: "ngen framework"
+  - key: cfe-s
+    ewts_id: CFE
+    description: "Conceptual Functional Equivalent to the National Water Model (Schaake)"
+  - key: cfe-x
+    ewts_id: CFE
+    description: "Conceptual Functional Equivalent to the National Water Model (Xianjiang)"
+  - key: forcing
+    ewts_id: FORCING
+    description: "Forcing Engine"
+  - key: lasam
+    ewts_id: LASAM
+    description: "Lumped Arid/Semi-arid Model"
+  - key: lstm
+    ewts_id: LSTM
+    description: "Long Short-Term Memory Networks Model"
+  - key: noah-owp-modular
+    ewts_id: NOAHOWP
+    description: "Noah OWP Land Surface Model"
+  - key: pet
+    ewts_id: PET
+    description: "Potential Evapotranspiration Model"
+  - key: sac-sma
+    ewts_id: SACSMA
+    description: "Sacramento Soil Moisture Accounting Model"
+  - key: sft
+    ewts_id: SFT
+    description: "Soil Freeze-thaw Model"
+  - key: snow-17
+    ewts_id: SNOW17
+    description: "Snow Cccumulation and Melt Model"
+  - key: smp
+    ewts_id: SMP
+    description: "Soil Moisture Profiles Model"
+  - key: topmodel
+    ewts_id: TOPMODEL
+    description: "Physically Based, Distributed Watershed Model"
+  - key: topoflow-glacier
+    ewts_id: TFGLACR
+    description: "Glacier Model from the TopoFlow Model"
+  - key: t-route
+    ewts_id: TROUTE
+    description: "T-Route routing"
+  - key: ueb
+    ewts_id: UEB_BMI
+    description: "Utah Energy Balance Model"

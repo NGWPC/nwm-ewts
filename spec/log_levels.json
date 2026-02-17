@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "generated_utc": "2026-02-16T13:22:10Z",
+  "levels": {
+    "NOTSET": 0,
+    "DEBUG": 10,
+    "INFO": 20,
+    "WARNING": 30,
+    "ERROR": 40,
+    "SEVERE": 40,
+    "FATAL": 50,
+    "CRITICAL": 50
+  },
+  "canonical_names": {
+    "0": "NOTSET",
+    "10": "DEBUG",
+    "20": "INFO",
+    "30": "WARNING",
+    "40": "SEVERE",
+    "50": "FATAL"
+  }
+}
