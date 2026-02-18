@@ -1,60 +1,53 @@
-"""
-Custom log record formatting for the Error Warning and Trapping System (EWTS).
+from __future__ import annotations
 
-This module defines a custom logging formatter used by EWTS to produce
-consistent, ngen-compatible log output across all participating modules.
+from datetime import datetime, timezone
 
-The formatter applies the following behaviors:
+from .log_levels import LEVELS, log_level_name
 
-    - Forces all timestamps to UTC, independent of system locale settings.
-    - Formats timestamps with millisecond precision.
-    - Maps Python logging levels to ngen-style severity names
-      (e.g., ERROR → SEVERE, CRITICAL → FATAL).
-    - Pads and normalizes level names to fixed width for column alignment.
-    - Strips trailing whitespace and newline characters from log messages.
+EWTS_ID_WIDTH = 8
+LEVEL_WIDTH = 7
 
-The formatter operates entirely within the Python logging framework and does
-not modify logger configuration or handler behavior. It is intended to be used
-by the EWTS logging configuration layer and not instantiated directly by
-application code.
-"""
+def iso_utc_timestamp_ms() -> str:
+    # Match C++: YYYY-MM-DDTHH:MM:SS.mmmZ
+    now = datetime.now(timezone.utc)
+    ms = int(now.microsecond / 1000)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ms:03d}Z"
 
-import logging
-import time
+def compact_utc_timestamp() -> str:
+    # Match C++: YYYYMMDDTHHMMSS
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
 
-class CustomFormatter(logging.Formatter):
-    LEVEL_NAME_MAP = {
-        logging.DEBUG: "DEBUG",
-        logging.INFO: "INFO",
-        logging.WARNING: "WARNING",
-        logging.ERROR: "SEVERE",
-        logging.CRITICAL: "FATAL"
-    }
+def pad_ewts_id(ewts_id: str) -> str:
+    s = (ewts_id or "").upper()
+    if len(s) >= EWTS_ID_WIDTH:
+        return s[:EWTS_ID_WIDTH]
+    return s + (" " * (EWTS_ID_WIDTH - len(s)))
 
-    # Apply custom formatter (UTC timestamps applied only to this formatter)
-    def converter(self, timestamp):
-        """Override time converter to return UTC time tuple"""
-        return time.gmtime(timestamp)
+def fixed_level_name(level: int) -> str:
+    # Prefer canonical name for the exact value if present.
+    name = log_level_name(int(level))
+    # Normalize common display expectations:
+    if name == "ERROR":
+        # C++ prints SEVERE for 40 by default; generated constants may include ERROR=40 too.
+        # Keep ERROR only if you explicitly want it; default here matches C++ style.
+        name = "SEVERE"
+    out = name
+    if len(out) < LEVEL_WIDTH:
+        out = out + (" " * (LEVEL_WIDTH - len(out)))
+    if len(out) > LEVEL_WIDTH:
+        out = out[:LEVEL_WIDTH]
+    return out
 
-    def formatTime(self, record, datefmt=None):
-        """Use our UTC converter"""
-        ct = self.converter(record.created)
-        if datefmt:
-            return time.strftime(datefmt, ct)
-        t = time.strftime("%Y-%m-%d %H:%M:%S", ct)
-        return f"{t},{int(record.msecs):03d}"
+def format_prefix(ewts_id: str, level: int) -> str:
+    # Match C++: "<ISO timestamp> <EWTS_ID padded> <LEVEL padded>"
+    return f"{iso_utc_timestamp_ms()} {pad_ewts_id(ewts_id)} {fixed_level_name(level)}"
 
-    def format(self, record):
-        # Strip trailing whitespace/newlines from the message
-        if record.msg:
-            record.msg = str(record.msg).rstrip()
-
-        # Map level names
-        original_levelname = record.levelname
-        record.levelname = self.LEVEL_NAME_MAP.get(record.levelno, original_levelname)
-        record.levelname_padded = record.levelname.ljust(7)[:7]  # Exactly 7 chars
-        formatted = super().format(record)
-
-        # Restore original levelname
-        record.levelname = original_levelname  # Restore original in case it's reused
-        return formatted
+def split_lines(message: str) -> list[str]:
+    # Match C++ behavior: stream getline over message.
+    # If message ends with newline, Python splitlines() would drop the last empty line by default.
+    # We want behavior close to getline: it emits an empty final line only if there is a trailing delimiter?
+    # Simpler: use splitlines() without keeping ends; if message is empty, emit one empty line.
+    if message is None:
+        return [""]
+    lines = str(message).splitlines()
+    return lines if lines else [""]
