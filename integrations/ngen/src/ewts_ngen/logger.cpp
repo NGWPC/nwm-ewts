@@ -1,4 +1,4 @@
-#include "Logger.hpp"
+#include "ewts_ngen/logger.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -69,87 +70,93 @@ inline LogLevel ClampCanonicalLevel(int v) {
     return LogLevel::FATAL;
 }
 
+constexpr std::size_t EWTS_ID_WIDTH = 8;
+
+inline std::string PadEwtsId(const std::string& id)
+{
+    std::string s = ToUpper(id);
+    if (s.size() >= EWTS_ID_WIDTH) return s.substr(0, EWTS_ID_WIDTH);
+    s.append(EWTS_ID_WIDTH - s.size(), ' ');
+    return s;
+}
+
 } // namespace
 
-Logger::Logger() {}
-
 Logger* Logger::GetLogger() {
-    static Logger* logger = nullptr;
-    if (!logger) {
-        logger = new Logger();
-    }
-    return logger;
+    static Logger instance;   // C++11: initialized once, thread-safe
+    return &instance;
 }
 
 void Logger::InitIfNeeded() {
-    if (initialized) return;
+    static std::once_flag once;
+    std::call_once(once, [this]() {
 
-    // Determine results dir
-    const char* rd = std::getenv(kEnvResultsDir);
-    if (rd && std::strlen(rd) > 0) {
-        ngenResultsDir = std::string(rd);
-    } else {
-        ngenResultsDir.clear();
-    }
-
-    // Determine module EWTS id (for log message prefix)
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
-    {
-        // moduleKey is stable key (lowercase)
-        const auto id = ewts::ModuleIdFromKey(moduleKey);
-        if (!id.empty()) {
-            ewtsId = std::string(id);
+        // Determine results dir
+        const char* rd = std::getenv(kEnvResultsDir);
+        if (rd && std::strlen(rd) > 0) {
+            ngenResultsDir = std::string(rd);
+        } else {
+            ngenResultsDir.clear();
         }
-    }
-#else
-    // Fallback (should match module_registry.yaml)
-    ewtsId = "NGEN";
-#endif
 
-    // Read config only when NGEN_RESULTS_DIR is set, per requirements.
-    bool loaded = false;
-    if (!ngenResultsDir.empty()) {
-        loaded = ReadConfigFromResultsDir(ngenResultsDir);
-    }
-    if (!loaded) {
-        // Defaults when no results dir
-        loggingEnabled = true;
-        splitLogsByModule = false;
-        // Prepopulate defaults for known modules (INFO) when generated registry is available.
-        moduleLogLevels.clear();
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
-        for (const auto& e : ewts::kModules) {
-            if (!e.key.empty()) {
-                moduleLogLevels[std::string(e.key)] = LogLevel::INFO;
+        // Determine module EWTS id (for log message prefix)
+    #if defined(EWTS_HAVE_MODULE_KEYS_HPP)
+        {
+            // moduleKey is stable key (lowercase)
+            const char* id_c = ewts::EwtsIdFromKey(moduleKey.c_str());
+            if (id_c) {
+                ewtsId = std::string(id_c);
             }
         }
-#endif
-        // Default module level for this module
-        moduleLogLevels[moduleKey] = LogLevel::INFO;
-        logLevel = LogLevel::INFO;
-    }
-    ApplyEnvVars(true);
+    #else
+        // Fallback (should match module_registry.yaml)
+        ewtsId = "NGEN";
+    #endif
 
-    // Determine MPI rank (optional)
-#if defined(NGEN_WITH_MPI)
-    {
-        int initialized_mpi = 0;
-        MPI_Initialized(&initialized_mpi);
-        if (initialized_mpi) {
-            int r = 0;
-            MPI_Comm_rank(MPI_COMM_WORLD, &r);
-            mpiRank = r;
-        } else {
-            // If MPI isn't initialized, treat as rank 0.
-            mpiRank = 0;
+        // Read config only when NGEN_RESULTS_DIR is set, per requirements.
+        bool loaded = false;
+        if (!ngenResultsDir.empty()) {
+            loaded = ReadConfigFromResultsDir(ngenResultsDir);
         }
-    }
-#else
-    mpiRank = 0;
-#endif
+        if (!loaded) {
+            // Defaults when no results dir
+            loggingEnabled = true;
+            splitLogsByModule = false;
+            // Prepopulate defaults for known modules (INFO) when generated registry is available.
+            moduleLogLevels.clear();
+    #if defined(EWTS_HAVE_MODULE_KEYS_HPP)
+            for (const auto& e : ewts::kModules) {
+                if (!e.key.empty()) {
+                    moduleLogLevels[std::string(e.key)] = LogLevel::INFO;
+                }
+            }
+    #endif
+            // Default module level for this module
+            moduleLogLevels[moduleKey] = LogLevel::INFO;
+            logLevel = LogLevel::INFO;
+        }
+        ApplyEnvVars(true);
 
-    SetupLogFile();
-    initialized = true;
+        // Determine MPI rank (optional)
+    #if defined(NGEN_WITH_MPI)
+        {
+            int initialized_mpi = 0;
+            MPI_Initialized(&initialized_mpi);
+            if (initialized_mpi) {
+                int r = 0;
+                MPI_Comm_rank(MPI_COMM_WORLD, &r);
+                mpiRank = r;
+            } else {
+                // If MPI isn't initialized, treat as rank 0.
+                mpiRank = 0;
+            }
+        }
+    #else
+        mpiRank = 0;
+    #endif
+
+        SetupLogFile();
+    });
 }
 
 bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
@@ -287,11 +294,16 @@ bool Logger::LogFileReady() const {
 }
 
 void Logger::Log(LogLevel messageLevel, const std::string& message) {
-    Log(message, messageLevel);
+    Logger* logger = GetLogger();
+    Log(logger->ewtsId, messageLevel, message);
 }
 
-void Logger::Log(LogLevel messageLevel, const char* message, ...) {
+void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const char* message, ...) {
     if (!message) return;
+
+    Logger* logger = GetLogger();
+    if (!logger->loggingEnabled) return;
+    if (static_cast<int>(messageLevel) < static_cast<int>(logger->logLevel)) return;
 
     // Format varargs into a std::string
     va_list args1;
@@ -314,10 +326,41 @@ void Logger::Log(LogLevel messageLevel, const char* message, ...) {
     // remove trailing null
     if (!buf.empty() && buf.back() == '\0') buf.pop_back();
 
-    Log(buf, messageLevel);
+    Log(moduleName, messageLevel, buf);
 }
 
-void Logger::Log(const std::string& message, LogLevel messageLevel) {
+void Logger::Log(LogLevel messageLevel, const char* message, ...) {
+    if (!message) return;
+
+    Logger* logger = GetLogger();
+    if (!logger->loggingEnabled) return;
+    if (static_cast<int>(messageLevel) < static_cast<int>(logger->logLevel)) return;
+
+    // Format varargs into a std::string
+    va_list args1;
+    va_start(args1, message);
+    va_list args2;
+    va_copy(args2, args1);
+
+    int needed = std::vsnprintf(nullptr, 0, message, args1);
+    va_end(args1);
+    if (needed < 0) {
+        va_end(args2);
+        return;
+    }
+
+    std::string buf;
+    buf.resize(static_cast<size_t>(needed) + 1);
+    std::vsnprintf(&buf[0], buf.size(), message, args2);
+    va_end(args2);
+
+    // remove trailing null
+    if (!buf.empty() && buf.back() == '\0') buf.pop_back();
+
+    Log(logger->ewtsId, messageLevel, buf);
+}
+
+void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std::string& message) {
     Logger* logger = GetLogger();
     logger->InitIfNeeded();
 
@@ -327,7 +370,7 @@ void Logger::Log(const std::string& message, LogLevel messageLevel) {
     const std::string level_str = LevelToFixedString(messageLevel);
 
     // Prefix: <ISO timestamp> <EWTS_ID padded> <LEVEL padded>
-    const std::string prefix = CreateTimestamp(true, true) + " " + logger->ewtsId + " " + level_str;
+    const std::string prefix = CreateTimestamp(true, true) + " " + PadEwtsId(moduleName) + " " + level_str;
 
     std::istringstream in(message);
     std::string line;
@@ -343,6 +386,11 @@ void Logger::Log(const std::string& message, LogLevel messageLevel) {
         }
         std::cout << std::flush;
     }
+}
+
+void Logger::Log(const std::string& message, LogLevel messageLevel) {
+    Logger* logger = GetLogger();
+    Log(logger->ewtsId, messageLevel, message);
 }
 
 std::string Logger::LevelToFixedString(LogLevel level) {

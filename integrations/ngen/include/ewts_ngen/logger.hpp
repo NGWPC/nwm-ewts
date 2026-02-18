@@ -30,9 +30,14 @@ class Logger {
   public:
     static Logger* GetLogger();
 
+    // Backwards-compatible overloads
     static void Log(const std::string& message, LogLevel messageLevel = LogLevel::INFO);
     static void Log(LogLevel messageLevel, const std::string& message);
     static void Log(LogLevel messageLevel, const char* message, ...);
+
+    // New ewtsID-aware overloads
+    static void Log(const std::string& moduleName, LogLevel messageLevel, const std::string& message);
+    static void Log(const std::string& moduleName, LogLevel messageLevel, const char* message, ...);
 
     static inline void LogAndThrow(const std::string& message) {
         Log(message, LogLevel::SEVERE);
@@ -43,7 +48,7 @@ class Logger {
     LogLevel GetLogLevel() const { return logLevel; }
 
   private:
-    Logger();
+    Logger() = default;
     ~Logger() = default;
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
@@ -75,7 +80,6 @@ class Logger {
     int GetRank() const { return mpiRank; }
 
     // state
-    bool        initialized     = false;
     bool        loggingEnabled  = true;
     bool        splitLogsByModule = false;
 
