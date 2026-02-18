@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_utc": "2026-02-16T13:22:10Z",
   "levels": {
     "NOTSET": 0,
     "DEBUG": 10,
+    "PERFORM": 15,
     "INFO": 20,
     "WARNING": 30,
     "ERROR": 40,
@@ -14,6 +14,7 @@
   "canonical_names": {
     "0": "NOTSET",
     "10": "DEBUG",
+    "15": "PERFORM",
     "20": "INFO",
     "30": "WARNING",
     "40": "SEVERE",

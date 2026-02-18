@@ -59,7 +59,7 @@ class Logger {
     void ApplyEnvVars(bool set);
 
     // log file
-    void SetupLogFile();
+    void SetupLogFile(const std::string& resultsDir);
     bool LogFileReady() const;
 
     // helpers
@@ -97,7 +97,7 @@ class Logger {
     std::unordered_map<std::string, LogLevel> moduleLogLevels;
 
     // environment
-    std::string  ngenResultsDir;
+    
 
     // mpi
     int mpiRank = 0;

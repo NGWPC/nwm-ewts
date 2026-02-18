@@ -91,6 +91,8 @@ void Logger::InitIfNeeded() {
     static std::once_flag once;
     std::call_once(once, [this]() {
 
+        std::string  ngenResultsDir;
+
         // Determine results dir
         const char* rd = std::getenv(kEnvResultsDir);
         if (rd && std::strlen(rd) > 0) {
@@ -155,7 +157,7 @@ void Logger::InitIfNeeded() {
         mpiRank = 0;
     #endif
 
-        SetupLogFile();
+        SetupLogFile(ngenResultsDir);
     });
 }
 
@@ -252,10 +254,10 @@ void Logger::ApplyEnvVars(bool set) {
     }
 }
 
-void Logger::SetupLogFile() {
+void Logger::SetupLogFile(const std::string& resultsDir) {
     // Determine output directory
-    if (!ngenResultsDir.empty()) {
-        logFileDir = JoinPath(ngenResultsDir, "logs");
+    if (!resultsDir.empty()) {
+        logFileDir = JoinPath(resultsDir, "logs");
     } else {
         logFileDir = JoinPath(GetHomeDir(), kDefaultRunLogsDirName);
     }
@@ -273,7 +275,7 @@ void Logger::SetupLogFile() {
 
     // Optional timestamp suffix (only when no results dir)
     std::string ts_part;
-    if (ngenResultsDir.empty()) {
+    if (resultsDir.empty()) {
         ts_part = "_" + CreateCompactTimestampUTC();
     } else {
         ts_part.clear();
