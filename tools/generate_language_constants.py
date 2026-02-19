@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import textwrap
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,6 +43,19 @@ class Module:
     ewts_id: str
     description: str = ""
 
+
+# ----------------------- Module key constants helpers -----------------------
+
+def _ident_from_key(key: str) -> str:
+    """Convert a registry key like 't-route' into an identifier like 'T_ROUTE'."""
+    s = key.strip().upper()
+    s = re.sub(r"[^A-Z0-9]+", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    if not s:
+        s = "MODULE"
+    if s[0].isdigit():
+        s = "M_" + s
+    return s
 
 def _infer_repo_root_from_script(script_path: Path) -> Path:
     # If this script lives at <repo>/tools/generate_language_constants.py
@@ -270,6 +284,92 @@ def _load_log_levels(log_levels_path: Path) -> dict:
 
 # ----------------------- Generators -----------------------
 
+
+def _generate_c_module_constants(modules: List[Module], out_h: Path, *, repo_root: Path, registry_meta: dict) -> None:
+    """Generate C macros for module keys and ids to avoid typos in call sites."""
+    lines = [
+        _c_block_banner("C", generated_utc=GEN_UTC, registry_meta=registry_meta),
+        "#ifndef EWTS_MODULE_CONSTANTS_H",
+        "#define EWTS_MODULE_CONSTANTS_H",
+        "",
+        "/* Auto-generated constants for module keys and EWTS IDs. */",
+        "",
+    ]
+    for m in modules:
+        ident = _ident_from_key(m.key)
+        lines.append(f'#define EWTS_KEY_{ident} "{m.key}"')
+        lines.append(f'#define EWTS_ID_{ident} "{m.ewts_id}"')
+        lines.append("")
+    lines.append("#endif  /* EWTS_MODULE_CONSTANTS_H */\n")
+    _write_text(out_h, "\n".join(lines))
+
+
+def _generate_cpp_module_constants(modules: List[Module], out_hpp: Path, *, registry_meta: dict) -> None:
+    """Generate C++ constexpr strings for module keys and ids."""
+    lines = [
+        _c_block_banner("C++", generated_utc=GEN_UTC, registry_meta=registry_meta),
+        "#ifndef EWTS_MODULE_CONSTANTS_HPP",
+        "#define EWTS_MODULE_CONSTANTS_HPP",
+        "",
+        "namespace ewts {",
+        "namespace modules {",
+        "",
+    ]
+    for m in modules:
+        ident = _ident_from_key(m.key)
+        lines.append(f'inline constexpr const char* KEY_{ident} = "{m.key}";')
+        lines.append(f'inline constexpr const char* ID_{ident}  = "{m.ewts_id}";')
+        lines.append("")
+    lines.extend([
+        "}  // namespace modules",
+        "}  // namespace ewts",
+        "",
+        "#endif  // EWTS_MODULE_CONSTANTS_HPP\n",
+    ])
+    _write_text(out_hpp, "\n".join(lines))
+
+
+def _generate_fortran_module_constants(modules: List[Module], out_f90: Path, *, registry_meta: dict) -> None:
+    """Generate Fortran parameters for module keys and ids."""
+    content = _f_banner(generated_utc=GEN_UTC, registry_meta=registry_meta)
+    content += "module ewts_module_constants\n"
+    content += "  implicit none\n\n"
+    for m in modules:
+        ident = _ident_from_key(m.key)
+        content += f'  character(len=*), parameter :: EWTS_KEY_{ident} = "{m.key}"\n'
+        content += f'  character(len=*), parameter :: EWTS_ID_{ident}  = "{m.ewts_id}"\n\n'
+    content += "end module ewts_module_constants\n"
+    _write_text(out_f90, content)
+
+
+def _generate_python_module_constants(modules: List[Module], out_py: Path, *, registry_meta: dict) -> None:
+    """Generate Python constants + Enum for module keys/ids to avoid typos."""
+    enum_items = []
+    for m in modules:
+        ident = _ident_from_key(m.key)
+        enum_items.append((ident, m.key, m.ewts_id))
+
+    lines = [
+        _py_banner(generated_utc=GEN_UTC, registry_meta=registry_meta),
+        "from __future__ import annotations\n",
+        "from enum import Enum\n\n",
+        "class ModuleKey(str, Enum):\n",
+    ]
+    for name, key, _ in enum_items:
+        lines.append(f'    {name} = "{key}"\n')
+    lines.append("\n\n")
+    for name, key, _ in enum_items:
+        lines.append(f'{name}_KEY = "{key}"\n')
+    lines.append("\n")
+    for name, _, ewts_id in enum_items:
+        lines.append(f'{name}_ID = "{ewts_id}"\n')
+
+    lines.append("\n__all__ = [\n    \"ModuleKey\",\n")
+    for name, _, _ in enum_items:
+        lines.append(f'    "{name}_KEY", "{name}_ID",\n')
+    lines.append("]\n")
+
+    _write_text(out_py, "".join(lines))
 
 def _generate_c_module_keys(modules: List[Module], out_h: Path, *, repo_root: Path, registry_meta: dict) -> None:
     entries = []
@@ -829,6 +929,13 @@ def main() -> int:
     f_lvl_f90 = repo_root / "runtime" / "fortran" / "src" / "ewts" / "log_levels.f90"
 
     py_mod_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "module_keys.py"
+
+    # Optional convenience constants to avoid typos in module keys / ids
+    c_const_h = repo_root / "runtime" / "c" / "include" / "ewts" / "module_constants.h"
+    cpp_const_hpp = repo_root / "runtime" / "cpp" / "include" / "ewts" / "module_constants.hpp"
+    f_const_f90 = repo_root / "runtime" / "fortran" / "src" / "ewts" / "module_constants.f90"
+    py_const_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "modules.py"
+
     py_lvl_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "log_levels.py"
 
     _generate_c_module_keys(modules, c_mod_h, repo_root=repo_root, registry_meta=rmeta)
@@ -842,6 +949,11 @@ def main() -> int:
 
     _generate_python_module_keys(modules, py_mod_py, registry_meta=rmeta)
     _generate_python_log_levels(py_lvl_py, levels_meta=lmeta)
+    _generate_c_module_constants(modules, c_const_h, repo_root=repo_root, registry_meta=rmeta)
+    _generate_cpp_module_constants(modules, cpp_const_hpp, registry_meta=rmeta)
+    _generate_fortran_module_constants(modules, f_const_f90, registry_meta=rmeta)
+    _generate_python_module_constants(modules, py_const_py, registry_meta=rmeta)
+
 
     print("Wrote per-language constants for modules + log levels.\n")
     print("Generated files:")

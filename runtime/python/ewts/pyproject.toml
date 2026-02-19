@@ -3,13 +3,20 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ewts"
-version = "3.1.0.1.0"  # 3.1 required by OWP, followed by major.minor.patch pattern
-description = "Error, Warning and Trapping System package"
+name = "nwm-ewts"
+version = "3.1.0.0.0"  # OWP requires a 3.1 prefix
+description = "NWM EWTS runtime (Error, Warning and Trapping System)"
 requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "MIT" }  # or whatever you actually use
+authors = [{ name = "Carolyn Maynard" }]
+keywords = ["logging", "ewts", "nwm", "ngen"]
+
+# If you truly have no external deps, you can omit this entirely.
+dependencies = []
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

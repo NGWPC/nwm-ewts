@@ -62,7 +62,7 @@ class _NgenBridge:
         self.fn(b_id, int(level), b_msg)
 
 class EwtsLogger:
-    """Logger keyed strictly by ewts_id (no __name__ anywhere)."""
+    """Logger keyed strictly by ewts_id."""
 
     def __init__(self, ewts_id: str):
         self.ewts_id = ewts_id.upper()
