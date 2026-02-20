@@ -1,0 +1,272 @@
+#include "ewts_logger.h"
+
+#include <ctype.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
+
+#ifndef EWTS_ID
+#define EWTS_ID "CFE"
+#endif
+
+#ifdef EWTS_HAVE_NGEN_BRIDGE
+#include "ewts_ngen/ewts_ngen_bridge.h"
+#else
+void ewts_ngen_log(const char* ewts_id, int level, const char* message);
+#endif
+
+#define EV_NGEN_RESULTS_DIR "NGEN_RESULTS_DIR"
+#define EV_EWTS_ENABLED     "EWTS_ENABLED"
+#define EV_EWTS_LOG_DIR     "EWTS_LOG_DIR"
+#define EV_EWTS_LOG_LEVEL   "EWTS_LOG_LEVEL"
+
+static int g_initialized = 0;
+static int g_enabled = 1;
+static LogLevel g_level = EWTS_INFO;
+
+static FILE* g_file = NULL;
+static char g_path[1024] = {0};
+static char g_ewts_id_padded[9] = {0}; /* 8 + NUL */
+
+static int streq_ci(const char* a, const char* b) {
+    if (!a || !b) return 0;
+    while (*a && *b) {
+        if (toupper((unsigned char)*a) != toupper((unsigned char)*b)) return 0;
+        ++a; ++b;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+static void trim_copy(const char* in, char* out, size_t out_sz) {
+    if (!out || out_sz == 0) return;
+    out[0] = '\0';
+    if (!in) return;
+    while (isspace((unsigned char)*in)) ++in;
+
+    size_t len = strlen(in);
+    while (len > 0 && isspace((unsigned char)in[len - 1])) --len;
+    if (len >= out_sz) len = out_sz - 1;
+    memcpy(out, in, len);
+    out[len] = '\0';
+}
+
+static int is_ngen_active(void) {
+    const char* v = getenv(EV_NGEN_RESULTS_DIR);
+    return (v && v[0] != '\0');
+}
+
+static int parse_enabled(const char* v) {
+    if (!v || v[0] == '\0') return 1;
+    char s[32];
+    trim_copy(v, s, sizeof(s));
+    if (s[0] == '\0') return 1;
+
+    if (streq_ci(s, "0") || streq_ci(s, "false") || streq_ci(s, "no") ||
+        streq_ci(s, "off") || streq_ci(s, "disabled")) {
+        return 0;
+    }
+    return 1;
+}
+
+static void build_module_loglevel_env(char* out, size_t out_sz) {
+    size_t n = 0;
+    for (const char* p = EWTS_ID; *p && n + 1 < out_sz; ++p) {
+        out[n++] = (char)toupper((unsigned char)*p);
+    }
+    const char* suffix = "_LOGLEVEL";
+    for (const char* p = suffix; *p && n + 1 < out_sz; ++p) out[n++] = *p;
+    out[n] = '\0';
+}
+
+static void pad_ewts_id(void) {
+    size_t i = 0;
+    for (; i < 8 && EWTS_ID[i] != '\0'; ++i) g_ewts_id_padded[i] = (char)toupper((unsigned char)EWTS_ID[i]);
+    for (; i < 8; ++i) g_ewts_id_padded[i] = ' ';
+    g_ewts_id_padded[8] = '\0';
+}
+
+static void utc_timestamp_iso_ms(char* buf, size_t sz) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    struct tm tm_utc;
+    gmtime_r(&tv.tv_sec, &tm_utc);
+
+    char base[32];
+    strftime(base, sizeof(base), "%Y-%m-%dT%H:%M:%S", &tm_utc);
+    long ms = tv.tv_usec / 1000;
+    snprintf(buf, sz, "%s.%03ldZ", base, ms);
+}
+
+static void utc_timestamp_compact(char* buf, size_t sz) {
+    time_t t = time(NULL);
+    struct tm tm_utc;
+    gmtime_r(&t, &tm_utc);
+    strftime(buf, sz, "%Y%m%dT%H%M%S", &tm_utc);
+}
+
+static const char* level_name_padded(LogLevel lvl) {
+    switch ((int)lvl) {
+        case EWTS_DEBUG:   return "DEBUG  ";
+        case EWTS_PERFORM: return "PERFORM";
+        case EWTS_INFO:    return "INFO   ";
+        case EWTS_WARNING: return "WARNING";
+        case EWTS_SEVERE:  return "SEVERE ";
+        case EWTS_FATAL:   return "FATAL  ";
+        default:           return "NOTSET ";
+    }
+}
+
+static LogLevel parse_level(const char* v) {
+    if (!v || v[0] == '\0') return EWTS_NOTSET;
+    char s[32];
+    trim_copy(v, s, sizeof(s));
+    if (s[0] == '\0') return EWTS_NOTSET;
+
+    char* end = NULL;
+    long num = strtol(s, &end, 10);
+    if (end && *end == '\0' && num >= 0) return (LogLevel)num;
+
+    if (streq_ci(s, "DEBUG"))   return EWTS_DEBUG;
+    if (streq_ci(s, "PERFORM")) return EWTS_PERFORM;
+    if (streq_ci(s, "INFO"))    return EWTS_INFO;
+    if (streq_ci(s, "WARN") || streq_ci(s, "WARNING")) return EWTS_WARNING;
+    if (streq_ci(s, "ERROR") || streq_ci(s, "SEVERE")) return EWTS_SEVERE;
+    if (streq_ci(s, "FATAL") || streq_ci(s, "CRITICAL")) return EWTS_FATAL;
+    if (streq_ci(s, "NOTSET") || streq_ci(s, "NONE")) return EWTS_NOTSET;
+
+    return EWTS_NOTSET;
+}
+
+static int dir_exists(const char* path) {
+    struct stat st;
+    return (stat(path, &st) == 0) && S_ISDIR(st.st_mode);
+}
+
+static int mkdir_p(const char* path) {
+    if (!path || path[0] == '\0') return 0;
+    char tmp[1024];
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    size_t len = strlen(tmp);
+    if (len == 0) return 0;
+    if (tmp[len - 1] == '/') tmp[len - 1] = '\0';
+
+    for (char* p = tmp + 1; *p; ++p) {
+        if (*p == '/') {
+            *p = '\0';
+            if (!dir_exists(tmp)) {
+                if (mkdir(tmp, 0775) != 0 && errno != EEXIST) return 0;
+            }
+            *p = '/';
+        }
+    }
+    if (!dir_exists(tmp)) {
+        if (mkdir(tmp, 0775) != 0 && errno != EEXIST) return 0;
+    }
+    return 1;
+}
+
+static void standalone_open_file(void) {
+    if (g_file) return;
+
+    const char* dir = getenv(EV_EWTS_LOG_DIR);
+    char log_dir[1024];
+    if (dir && dir[0] != '\0') {
+        snprintf(log_dir, sizeof(log_dir), "%s", dir);
+    } else {
+        const char* home = getenv("HOME");
+        if (home && home[0] != '\0') snprintf(log_dir, sizeof(log_dir), "%s/run_logs", home);
+        else snprintf(log_dir, sizeof(log_dir), "./run_logs");
+    }
+
+    (void)mkdir_p(log_dir);
+
+    char ts[32];
+    utc_timestamp_compact(ts, sizeof(ts));
+    snprintf(g_path, sizeof(g_path), "%s/%s_%s.log", log_dir, EWTS_ID, ts);
+
+    g_file = fopen(g_path, "a");
+}
+
+static void load_env_preferences(void) {
+    g_enabled = parse_enabled(getenv(EV_EWTS_ENABLED));
+
+    char key[64];
+    build_module_loglevel_env(key, sizeof(key));
+    LogLevel lvl = parse_level(getenv(key));
+    if ((int)lvl != EWTS_NOTSET) { g_level = lvl; return; }
+
+    lvl = parse_level(getenv(EV_EWTS_LOG_LEVEL));
+    g_level = ((int)lvl != EWTS_NOTSET) ? lvl : EWTS_INFO;
+}
+
+static void init_once(void) {
+    if (g_initialized) return;
+    g_initialized = 1;
+    pad_ewts_id();
+    load_env_preferences();
+}
+
+LogLevel GetLogLevel(void) {
+    init_once();
+    return g_level;
+}
+
+bool IsLoggingEnabled(void) {
+    init_once();
+    return g_enabled ? true : false;
+}
+
+void Log(LogLevel level, const char* fmt, ...) {
+    init_once();
+    if (!g_enabled) return;
+    if ((int)level < (int)g_level) return;
+
+    va_list ap;
+    va_start(ap, fmt);
+    va_list ap2;
+    va_copy(ap2, ap);
+    int n = vsnprintf(NULL, 0, fmt, ap2);
+    va_end(ap2);
+    if (n < 0) { va_end(ap); return; }
+
+    char* msg = (char*)malloc((size_t)n + 1);
+    if (!msg) { va_end(ap); return; }
+    vsnprintf(msg, (size_t)n + 1, fmt, ap);
+    va_end(ap);
+
+    if (is_ngen_active()) {
+        ewts_ngen_log(EWTS_ID, (int)level, msg);
+        free(msg);
+        return;
+    }
+
+    standalone_open_file();
+
+    char ts[32];
+    utc_timestamp_iso_ms(ts, sizeof(ts));
+    const char* lvl_str = level_name_padded(level);
+
+    FILE* out = g_file ? g_file : stdout;
+
+    char* saveptr = NULL;
+    char* line = strtok_r(msg, "\n", &saveptr);
+
+    if (!line) {
+        fprintf(out, "%s %s %s \n", ts, g_ewts_id_padded, lvl_str);
+    } else {
+        while (line) {
+            fprintf(out, "%s %s %s %s\n", ts, g_ewts_id_padded, lvl_str, line);
+            line = strtok_r(NULL, "\n", &saveptr);
+        }
+    }
+
+    fflush(out);
+    free(msg);
+}
