@@ -20,6 +20,7 @@
 enum class LogLevel : int {
     NOTSET  = 0,
     DEBUG   = 10,
+    PERFORM = 15,
     INFO    = 20,
     WARNING = 30,
     SEVERE  = 40,

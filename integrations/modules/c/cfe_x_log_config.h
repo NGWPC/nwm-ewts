@@ -13,6 +13,6 @@
  */
 #include "ewts/module_constants.h"
 
-#define EWTS_ID EWTS_ID_CFE
+#define EWTS_ID EWTS_ID_CFE_X
 
 #endif /* NWM_EWTS_C_CFE_LOG_CONFIG_H */

@@ -64,6 +64,7 @@ inline LogLevel ClampCanonicalLevel(int v) {
     // Canonical allowed numeric levels: 10/20/30/40/50 (and 0).
     if (v <= 0)  return LogLevel::NOTSET;
     if (v <= 10) return LogLevel::DEBUG;
+    if (v <= 15) return LogLevel::PERFORM;
     if (v <= 20) return LogLevel::INFO;
     if (v <= 30) return LogLevel::WARNING;
     if (v <= 40) return LogLevel::SEVERE;
@@ -402,6 +403,7 @@ std::string Logger::LevelToFixedString(LogLevel level) {
     std::string name;
     switch (level) {
         case LogLevel::DEBUG:   name = "DEBUG"; break;
+        case LogLevel::PERFORM: name = "PERFORM"; break;
         case LogLevel::INFO:    name = "INFO"; break;
         case LogLevel::WARNING: name = "WARNING"; break;
         case LogLevel::SEVERE:  name = "SEVERE"; break;
@@ -419,6 +421,7 @@ std::string Logger::LevelToFixedString(LogLevel level) {
 LogLevel Logger::ParseLevel(const std::string& value) {
     std::string v = ToLower(TrimString(value));
     if (v == "debug")   return LogLevel::DEBUG;
+    if (v == "performance" || v == "perform") return LogLevel::PERFORM;
     if (v == "info")    return LogLevel::INFO;
     if (v == "warning" || v == "warn") return LogLevel::WARNING;
     if (v == "error" || v == "severe") return LogLevel::SEVERE;

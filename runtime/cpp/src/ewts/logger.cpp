@@ -1,4 +1,4 @@
-#include "ewts_logger.hpp"
+#include "ewts/logger.hpp"
 
 #include <cctype>
 #include <cstdarg>
@@ -7,20 +7,15 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <iostream>
 #include <string>
 #include <string_view>
 
 #include <sys/time.h>
 #include <time.h>
 
-#ifndef EWTS_ID
-#define EWTS_ID "CFE"
-#endif
-
 #ifdef EWTS_HAVE_NGEN_BRIDGE
 #include "ewts_ngen/ewts_ngen_bridge.h"
-#else
-extern "C" void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 #endif
 
 namespace ewts {
@@ -30,9 +25,17 @@ static constexpr const char* EV_EWTS_ENABLED     = "EWTS_ENABLED";
 static constexpr const char* EV_EWTS_LOG_DIR     = "EWTS_LOG_DIR";
 static constexpr const char* EV_EWTS_LOG_LEVEL   = "EWTS_LOG_LEVEL";
 
+#ifndef EWTS_ID
+#define EWTS_ID "EWTS"
+#endif
+static std::string g_ewts_id = EWTS_ID;
+
 static std::once_flag g_once;
 static bool g_enabled = true;
 static LogLevel g_level = LogLevel::INFO;
+
+static std::mutex g_init_mtx;
+static std::string g_requested_ewts_id;
 
 static std::mutex g_mtx;
 static std::ofstream g_out;
@@ -56,7 +59,7 @@ static bool parse_enabled(const char* v) {
 }
 
 static std::string module_loglevel_env() {
-    std::string id(EWTS_ID);
+    std::string id = g_ewts_id;
     for (auto& c : id) c = (char)std::toupper((unsigned char)c);
     return id + "_LOGLEVEL";
 }
@@ -87,7 +90,7 @@ static LogLevel parse_level(const char* v) {
 }
 
 static void pad_id() {
-    std::string id(EWTS_ID);
+    std::string id = g_ewts_id;
     for (auto& c : id) c = (char)std::toupper((unsigned char)c);
     if (id.size() >= 8) g_ewts_id_padded = id.substr(0, 8);
     else g_ewts_id_padded = id + std::string(8 - id.size(), ' ');
@@ -101,8 +104,14 @@ static std::string utc_timestamp_iso_ms() {
     char base[32];
     std::strftime(base, sizeof(base), "%Y-%m-%dT%H:%M:%S", &tm_utc);
     long ms = tv.tv_usec / 1000;
+    unsigned ms3 = static_cast<unsigned>(ms) % 1000u;
     char out[48];
-    std::snprintf(out, sizeof(out), "%s.%03ldZ", base, ms);
+    int n = std::snprintf(out, sizeof(out), "%s.%03uZ", base, ms3);
+    std::snprintf(out, sizeof(out), "%s.%03uZ", base, ms3);
+    if (n < 0 || static_cast<std::size_t>(n) >= sizeof(out)) {
+        // Should never happen with these buffer sizes, but keeps compilers happy + safe.
+        return std::string("0000-00-00T00:00:00.000Z");
+    }
     return std::string(out);
 }
 
@@ -127,25 +136,62 @@ static const char* level_name_padded(LogLevel lvl) {
     }
 }
 
-static void open_standalone_file() {
+static void open_standalone_file()
+{
     if (g_out.is_open()) return;
 
     const char* dir = std::getenv(EV_EWTS_LOG_DIR);
     std::string log_dir;
-    if (dir && *dir) log_dir = dir;
+
+    if (dir && *dir) {
+        log_dir = dir;
+    }
     else {
         const char* home = std::getenv("HOME");
-        log_dir = (home && *home) ? (std::string(home) + "/run_logs") : "./run_logs";
+        log_dir = (home && *home)
+                    ? (std::string(home) + "/run_logs")
+                    : "./run_logs";
     }
 
     std::error_code ec;
     std::filesystem::create_directories(log_dir, ec);
+    if (ec) {
+        std::cerr << "EWTS WARNING: Failed to create log directory '"
+                  << log_dir << "': " << ec.message()
+                  << ". Falling back to stdout.\n";
+        return;
+    }
 
-    g_path = log_dir + "/" + std::string(EWTS_ID) + "_" + utc_timestamp_compact() + ".log";
+    std::string ts = utc_timestamp_compact();
+    g_path = log_dir + "/" + g_ewts_id + "_" + ts + ".log";
+
     g_out.open(g_path, std::ios::out | std::ios::app);
+
+    if (!g_out.is_open()) {
+        std::cerr << "EWTS ERROR: Failed to open log file '"
+                  << g_path << "'. Falling back to stdout.\n";
+
+        /* Optional fallback to shorter filename */
+        g_path = log_dir + "/" + g_ewts_id + ".log";
+        g_out.open(g_path, std::ios::out | std::ios::app);
+
+        if (!g_out.is_open()) {
+            std::cerr << "EWTS ERROR: Fallback log file also failed. "
+                      << "Logging will go to std::out.\n";
+        }
+        else {
+            std::cerr << "EWTS WARNING: Using fallback log file '"
+                      << g_path << "'.\n";
+        }
+    }
 }
 
 static void init_once() {
+    {
+        std::lock_guard<std::mutex> lk(g_init_mtx);
+        if (!g_requested_ewts_id.empty()) g_ewts_id = g_requested_ewts_id;
+    }    
+    
     g_enabled = parse_enabled(std::getenv(EV_EWTS_ENABLED));
 
     auto key = module_loglevel_env();
@@ -157,6 +203,14 @@ static void init_once() {
     }
 
     pad_id();
+}
+
+void EwtsInit(std::string_view ewts_id) {
+    {
+        std::lock_guard<std::mutex> lk(g_init_mtx);
+        if (!ewts_id.empty()) g_requested_ewts_id = std::string(ewts_id);
+    }
+    std::call_once(g_once, init_once);
 }
 
 bool IsLoggingEnabled() {
@@ -174,17 +228,19 @@ void Log(LogLevel level, std::string_view message) {
     if (!g_enabled) return;
     if ((int)level < (int)g_level) return;
 
+#ifdef EWTS_HAVE_NGEN_BRIDGE
     if (is_ngen_active()) {
         std::string msg(message);
-        ewts_ngen_log(EWTS_ID, (int)level, msg.c_str());
+        ewts_ngen_log(g_ewts_id.c_str(), (int)level, msg.c_str());
         return;
     }
-
-    std::lock_guard<std::mutex> lk(g_mtx);
-    open_standalone_file();
+#endif
 
     const auto ts = utc_timestamp_iso_ms();
     const char* lvl = level_name_padded(level);
+
+    std::lock_guard<std::mutex> lk(g_mtx); // Automatically unlocks g_mtx when lk goes out of scope
+    open_standalone_file();
 
     std::string msg(message);
     size_t start = 0;

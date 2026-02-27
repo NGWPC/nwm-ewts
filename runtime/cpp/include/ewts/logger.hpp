@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
 
 #include <string_view>
 
@@ -14,9 +15,14 @@ enum class LogLevel : int {
     FATAL   = 50
 };
 
+// Optional: call before first Log to set EWTS ID; otherwise defaults to EWTS.
+void EwtsInit(std::string_view ewts_id);
+
 bool IsLoggingEnabled();
 LogLevel GetLogLevel();
 void Log(LogLevel level, std::string_view message);
 void Logf(LogLevel level, const char* fmt, ...);
 
 }  // namespace ewts
+
+#endif /* LOGGER_HPP */

@@ -3,12 +3,11 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nwm-ewts"
+name = "ewts"
 version = "3.1.0.0.0"  # OWP requires a 3.1 prefix
 description = "NWM EWTS runtime (Error, Warning and Trapping System)"
 requires-python = ">=3.11"
-readme = "README.md"
-license = { text = "MIT" }  # or whatever you actually use
+license = { text = "MIT" }
 authors = [{ name = "Carolyn Maynard" }]
 keywords = ["logging", "ewts", "nwm", "ngen"]
 

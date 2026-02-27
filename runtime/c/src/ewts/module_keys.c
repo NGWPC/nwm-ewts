@@ -10,21 +10,21 @@
 
     const ewts_module_entry ewts_modules[] = {
         {"ngen", "NGEN", "ngen framework"},
-{"cfe-s", "CFE", "Conceptual Functional Equivalent to the National Water Model (Schaake)"},
-{"cfe-x", "CFE", "Conceptual Functional Equivalent to the National Water Model (Xianjiang)"},
-{"forcing", "FORCING", "Forcing Engine"},
-{"lasam", "LASAM", "Lumped Arid/Semi-arid Model"},
-{"lstm", "LSTM", "Long Short-Term Memory Networks Model"},
-{"noah-owp-modular", "NOAHOWP", "Noah OWP Land Surface Model"},
-{"pet", "PET", "Potential Evapotranspiration Model"},
-{"sac-sma", "SACSMA", "Sacramento Soil Moisture Accounting Model"},
-{"sft", "SFT", "Soil Freeze-thaw Model"},
-{"snow-17", "SNOW17", "Snow Cccumulation and Melt Model"},
-{"smp", "SMP", "Soil Moisture Profiles Model"},
-{"topmodel", "TOPMODEL", "Physically Based, Distributed Watershed Model"},
-{"topoflow-glacier", "TFGLACR", "Glacier Model from the TopoFlow Model"},
-{"t-route", "TROUTE", "T-Route routing"},
-{"ueb", "UEB_BMI", "Utah Energy Balance Model"}
+        {"cfe-s", "CFE", "Conceptual Functional Equivalent to the National Water Model (Schaake)"},
+        {"cfe-x", "CFE", "Conceptual Functional Equivalent to the National Water Model (Xianjiang)"},
+        {"forcing", "FORCING", "Forcing Engine"},
+        {"lasam", "LASAM", "Lumped Arid/Semi-arid Model"},
+        {"lstm", "LSTM", "Long Short-Term Memory Networks Model"},
+        {"noah-owp-modular", "NOAHOWP", "Noah OWP Land Surface Model"},
+        {"pet", "PET", "Potential Evapotranspiration Model"},
+        {"sac-sma", "SACSMA", "Sacramento Soil Moisture Accounting Model"},
+        {"sft", "SFT", "Soil Freeze-thaw Model"},
+        {"snow-17", "SNOW17", "Snow Cccumulation and Melt Model"},
+        {"smp", "SMP", "Soil Moisture Profiles Model"},
+        {"topmodel", "TOPMODEL", "Physically Based, Distributed Watershed Model"},
+        {"topoflow-glacier", "TFGLACR", "Glacier Model from the TopoFlow Model"},
+        {"t-route", "TROUTE", "T-Route routing"},
+        {"ueb", "UEB_BMI", "Utah Energy Balance Model"}
     };
 
     const size_t ewts_modules_count = sizeof(ewts_modules) / sizeof(ewts_modules[0]);

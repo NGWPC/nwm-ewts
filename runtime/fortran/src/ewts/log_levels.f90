@@ -22,13 +22,9 @@ contains
             case (30)
               name = "WARNING"
             case (40)
-              name = "ERROR"
-            case (40)
               name = "SEVERE"
             case (50)
               name = "FATAL"
-            case (50)
-              name = "CRITICAL"
     case default
       name = "INFO"
     end select

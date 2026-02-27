@@ -12,9 +12,39 @@ module ewts_module_keys
   integer, parameter :: EWTS_ID_LEN = 8
   integer, parameter :: EWTS_DESC_LEN = 72
 
-  character(len=EWTS_KEY_LEN), dimension(EWTS_MODULE_COUNT), parameter :: EWTS_KEYS = (/ "ngen", "cfe-s", "cfe-x", "forcing", "lasam", "lstm", "noah-owp-modular", "pet", "sac-sma", "sft", "snow-17", "smp", "topmodel", "topoflow-glacier", "t-route", "ueb" /)
-  character(len=EWTS_ID_LEN),  dimension(EWTS_MODULE_COUNT), parameter :: EWTS_IDS  = (/ "NGEN", "CFE", "CFE", "FORCING", "LASAM", "LSTM", "NOAHOWP", "PET", "SACSMA", "SFT", "SNOW17", "SMP", "TOPMODEL", "TFGLACR", "TROUTE", "UEB_BMI" /)
-  character(len=EWTS_DESC_LEN),dimension(EWTS_MODULE_COUNT), parameter :: EWTS_DESCS= (/ "ngen framework", "Conceptual Functional Equivalent to the National Water Model (Schaake)", "Conceptual Functional Equivalent to the National Water Model (Xianjiang)", "Forcing Engine", "Lumped Arid/Semi-arid Model", "Long Short-Term Memory Networks Model", "Noah OWP Land Surface Model", "Potential Evapotranspiration Model", "Sacramento Soil Moisture Accounting Model", "Soil Freeze-thaw Model", "Snow Cccumulation and Melt Model", "Soil Moisture Profiles Model", "Physically Based, Distributed Watershed Model", "Glacier Model from the TopoFlow Model", "T-Route routing", "Utah Energy Balance Model" /)
+  character(len=EWTS_KEY_LEN), parameter :: EWTS_KEYS(EWTS_MODULE_COUNT) = &
+  [character(len=EWTS_KEY_LEN) :: &
+    "ngen", "cfe-s", "cfe-x", "forcing", "lasam", "lstm", &
+    "noah-owp-modular", "pet", "sac-sma", "sft", "snow-17", &
+    "smp", "topmodel", "topoflow-glacier", "t-route", "ueb" &
+  ]
+
+character(len=EWTS_ID_LEN),  parameter :: EWTS_IDS(EWTS_MODULE_COUNT) = &
+  [character(len=EWTS_ID_LEN) :: &
+    "NGEN", "CFE", "CFE", "FORCING", "LASAM", "LSTM", &
+    "NOAHOWP", "PET", "SACSMA", "SFT", "SNOW17", "SMP", &
+    "TOPMODEL", "TFGLACR", "TROUTE", "UEB_BMI" &
+  ]
+
+character(len=EWTS_DESC_LEN), parameter :: EWTS_DESCS(EWTS_MODULE_COUNT) = &
+  [character(len=EWTS_DESC_LEN) :: &
+    "ngen framework", &
+    "Conceptual Functional Equivalent to the National Water Model (Schaake)", &
+    "Conceptual Functional Equivalent to the National Water Model (Xianjiang)", &
+    "Forcing Engine", &
+    "Lumped Arid/Semi-arid Model", &
+    "Long Short-Term Memory Networks Model", &
+    "Noah OWP Land Surface Model", &
+    "Potential Evapotranspiration Model", &
+    "Sacramento Soil Moisture Accounting Model", &
+    "Soil Freeze-thaw Model", &
+    "Snow Cccumulation and Melt Model", &
+    "Soil Moisture Profiles Model", &
+    "Physically Based, Distributed Watershed Model", &
+    "Glacier Model from the TopoFlow Model", &
+    "T-Route routing", &
+    "Utah Energy Balance Model" &
+  ]
 
 contains
 
