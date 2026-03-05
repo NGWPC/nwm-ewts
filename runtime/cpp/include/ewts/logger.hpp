@@ -1,5 +1,5 @@
-#ifndef LOGGER_HPP
-#define LOGGER_HPP
+#ifndef EWTS_LOGGER_HPP
+#define EWTS_LOGGER_HPP
 
 #include <string_view>
 
@@ -25,4 +25,4 @@ void Logf(LogLevel level, const char* fmt, ...);
 
 }  // namespace ewts
 
-#endif /* LOGGER_HPP */
+#endif /* EWTS_LOGGER_HPP */

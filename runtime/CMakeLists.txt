@@ -1,3 +1,7 @@
+#
+# nwm-ewts/runtime/CMakeLists.txt
+#
+
 cmake_minimum_required(VERSION 3.20)
 project(ewts LANGUAGES C CXX Fortran)
 
@@ -7,18 +11,10 @@ include(CMakePackageConfigHelpers)
 option(EWTS_BUILD_C       "Build EWTS C runtime"       ON)
 option(EWTS_BUILD_CPP     "Build EWTS C++ runtime"     ON)
 option(EWTS_BUILD_FORTRAN "Build EWTS Fortran runtime" ON)
-option(EWTS_WITH_NGEN     "Build EWTS ngen bridge"     OFF)
+option(EWTS_WITH_NGEN     "Build EWTS ngen bridge"     ON)
 option(EWTS_BUILD_SHARED  "Build shared libs"          ON)
 
-# ----- Install Fortran config sources (your preferred approach) -----
-# These are the per-module *_log_config.f90 files that export EWTS_ID.
-set(EWTS_FORTRAN_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/ewts/fortran/config")
-
-install(
-  DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/../integrations/modules/fortran/"
-  DESTINATION "${EWTS_FORTRAN_CONFIG_INSTALL_DIR}"
-  FILES_MATCHING PATTERN "*_log_config.f90"
-)
+set(BUILD_SHARED_LIBS ${EWTS_BUILD_SHARED})
 
 # Provide this path to consumers via the package config file.
 set(EWTS_FORTRAN_CONFIG_DIR "\${PACKAGE_PREFIX_DIR}/${EWTS_FORTRAN_CONFIG_INSTALL_DIR}")

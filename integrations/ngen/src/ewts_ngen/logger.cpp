@@ -10,28 +10,26 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <mpi.h>
 #include <mutex>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS // intentionally want the old behavior
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#if defined(NGEN_WITH_MPI)
-  #include <mpi.h>
-#endif
-
 // Prefer generated per-language constants if available.
 #if defined(__has_include)
-  #if __has_include("ewts/module_keys.hpp")
-    #include "ewts/module_keys.hpp"
-    #define EWTS_HAVE_MODULE_KEYS_HPP 1
-  #endif
-  #if __has_include("ewts/log_levels.hpp")
-    #include "ewts/log_levels.hpp"
-    #define EWTS_HAVE_LOG_LEVELS_HPP 1
-  #endif
+#if __has_include("ewts/module_keys.hpp")
+#include "ewts/module_keys.hpp"
+#define EWTS_HAVE_MODULE_KEYS_HPP 1
+#endif
+#if __has_include("ewts/log_levels.hpp")
+#include "ewts/log_levels.hpp"
+#define EWTS_HAVE_LOG_LEVELS_HPP 1
+#endif
 #endif
 
 namespace {
@@ -81,6 +79,13 @@ inline std::string PadEwtsId(const std::string& id)
     return s;
 }
 
+inline bool mpi_is_initialized()
+{
+    int flag = 0;
+    MPI_Initialized(&flag);
+    return flag != 0;
+}
+
 } // namespace
 
 Logger* Logger::GetLogger() {
@@ -103,18 +108,19 @@ void Logger::InitIfNeeded() {
         }
 
         // Determine module EWTS id (for log message prefix)
-    #if defined(EWTS_HAVE_MODULE_KEYS_HPP)
+#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
         {
+            std::cout << "EWTS ngen using module keys" << std::endl;
             // moduleKey is stable key (lowercase)
             const char* id_c = ewts::EwtsIdFromKey(moduleKey.c_str());
             if (id_c) {
                 ewtsId = std::string(id_c);
             }
         }
-    #else
+#else
         // Fallback (should match module_registry.yaml)
         ewtsId = "NGEN";
-    #endif
+#endif
 
         // Read config only when NGEN_RESULTS_DIR is set, per requirements.
         bool loaded = false;
@@ -127,13 +133,13 @@ void Logger::InitIfNeeded() {
             splitLogsByModule = false;
             // Prepopulate defaults for known modules (INFO) when generated registry is available.
             moduleLogLevels.clear();
-    #if defined(EWTS_HAVE_MODULE_KEYS_HPP)
+#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
             for (const auto& e : ewts::kModules) {
-                if (!e.key.empty()) {
+                if (e.key && *e.key) {                 // non-null and not ""
                     moduleLogLevels[std::string(e.key)] = LogLevel::INFO;
                 }
             }
-    #endif
+#endif
             // Default module level for this module
             moduleLogLevels[moduleKey] = LogLevel::INFO;
             logLevel = LogLevel::INFO;
@@ -141,22 +147,23 @@ void Logger::InitIfNeeded() {
         ApplyEnvVars(true);
 
         // Determine MPI rank (optional)
-    #if defined(NGEN_WITH_MPI)
-        {
+        if (mpi_is_initialized()) {
+            std::cout << "EWTS ngen running with MPI" << std::endl;
             int initialized_mpi = 0;
             MPI_Initialized(&initialized_mpi);
             if (initialized_mpi) {
                 int r = 0;
                 MPI_Comm_rank(MPI_COMM_WORLD, &r);
-                mpiRank = r;
+                g_mpiRank = r;
             } else {
                 // If MPI isn't initialized, treat as rank 0.
-                mpiRank = 0;
+                g_mpiRank = 0;
             }
         }
-    #else
-        mpiRank = 0;
-    #endif
+        else {
+            std::cout << "EWTS ngen running WITHOUT MPI" << std::endl;
+            g_mpiRank = 0;
+        }
 
         SetupLogFile(ngenResultsDir);
     });
@@ -172,10 +179,13 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
 
     const std::string cfg = JoinPath(resultsDir, kConfigFilename);
     if (!FileExists(cfg)) {
+        std::cout << "WARNING: EWTS config file " << cfg << " NOT FOUND. Defaults will be used" << std::endl;
         // No config file: keep defaults, but still export environment variables.
         logLevel = moduleLogLevels[moduleKey];
         return false;
     }
+
+    std::cout << "EWTS config file " << cfg << std::endl;
 
     boost::property_tree::ptree pt;
     try {
@@ -198,10 +208,12 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
         if (opt_logging_enabled) enabled = *opt_logging_enabled;
     }
     loggingEnabled = enabled;
+    std::cout << "EWTS logging " << ((loggingEnabled)? "ENABLED":"DISABLED") << std::endl;
 
     // split_logs_by_module (optional)
     auto opt_split = pt.get_optional<bool>("split_logs_by_module");
     if (opt_split) splitLogsByModule = *opt_split;
+    std::cout << "EWTS logging to " << ((splitLogsByModule)? "<MODULE>":"a UNIFIED ngen") << " per rank file" << std::endl;
 
     // modules map (optional): stable_key -> level ("info"/"debug"/"20"/etc)
     auto modules_child = pt.get_child_optional("modules");
@@ -209,6 +221,7 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
         for (const auto& kv : *modules_child) {
             const std::string key = TrimString(kv.first);
             const std::string raw = TrimString(kv.second.get_value<std::string>());
+            std::cout << "EWTS " << key << " log level read be ngen " << ToUpper(raw) << std::endl;
 
             LogLevel lvl = LogLevel::INFO;
             if (IsDigitString(raw)) {
@@ -252,6 +265,8 @@ void Logger::ApplyEnvVars(bool set) {
 #else
         ::setenv(env_name.c_str(), env_val.c_str(), 1);
 #endif
+        std::cout << "EWTS " << env_name << " set to " << env_val << std::endl;
+
     }
 }
 
@@ -268,11 +283,12 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
 
     // Optional rank suffix
     std::string rank_part;
-#if defined(NGEN_WITH_MPI)
-    rank_part = "_" + std::to_string(GetRank());
-#else
-    rank_part.clear();
-#endif
+    if (mpi_is_initialized()) {
+        rank_part = "_rank_" + std::to_string(GetRank());
+    }
+    else {
+        rank_part.clear();
+    }
 
     // Optional timestamp suffix (only when no results dir)
     std::string ts_part;
@@ -290,6 +306,8 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
 
     // Open file (append)
     logFile.open(logFilePath.c_str(), std::ios::out | std::ios::app);
+
+    std::cout << "EWTS log file " << logFilePath << std::endl;
 }
 
 bool Logger::LogFileReady() const {
@@ -398,7 +416,7 @@ void Logger::Log(const std::string& message, LogLevel messageLevel) {
 
 std::string Logger::LevelToFixedString(LogLevel level) {
 #if defined(EWTS_HAVE_LOG_LEVELS_HPP)
-    const std::string name = std::string(ewts::CanonicalName(static_cast<int>(level)));
+    const std::string name = std::string(ewts::LogLevelName(static_cast<int>(level)));
 #else
     std::string name;
     switch (level) {
@@ -520,28 +538,23 @@ std::string Logger::JoinPath(const std::string& a, const std::string& b) {
     return a + "/" + b;
 }
 
-std::string Logger::EnvVarIdentFromModuleKey(const std::string& key) {
-    // Match generate_language_constants.py behavior: t-route -> T_ROUTE
+std::string Logger::EnvVarIdentFromModuleKey(const std::string& key)
+{
     if (key.empty()) return "";
-    std::string out;
-    out.reserve(key.size());
-    for (char ch : key) {
-        const unsigned char c = static_cast<unsigned char>(ch);
-        if (std::isalnum(c)) out.push_back(static_cast<char>(std::toupper(c)));
-        else out.push_back('_');
+
+    // First try exact match
+    if (const char* id = ewts::EwtsIdFromKey(key.c_str())) {
+        return std::string(id);
     }
-    // collapse consecutive underscores
-    std::string collapsed;
-    collapsed.reserve(out.size());
-    char prev = ' ';
-    for (char c2 : out) {
-        if (c2 == '_' && prev == '_') continue;
-        collapsed.push_back(c2);
-        prev = c2;
+
+    // Then try lowercased key (registry keys are typically lowercase)
+    std::string lower = key;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+
+    if (const char* id = ewts::EwtsIdFromKey(lower.c_str())) {
+        return std::string(id);
     }
-    out.swap(collapsed);
-    // trim leading/trailing "_"
-    while (!out.empty() && out.front() == '_') out.erase(out.begin());
-    while (!out.empty() && out.back() == '_') out.pop_back();
-    return out;
+
+    return "";
 }

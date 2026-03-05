@@ -1,3 +1,7 @@
+#
+# nwm-ewts/runtime/c/CMakeLists.txt 
+#
+
 add_library(ewts_c
   src/ewts/logger.c
   src/ewts/module_keys.c
@@ -12,6 +16,8 @@ target_include_directories(ewts_c
 set_target_properties(ewts_c PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )
+
+target_link_libraries(ewts_c PRIVATE dl)
 
 add_library(ewts::c ALIAS ewts_c)
 

@@ -317,8 +317,8 @@ def _generate_cpp_module_constants(modules: List[Module], out_hpp: Path, *, regi
     ]
     for m in modules:
         ident = _ident_from_key(m.key)
-        lines.append(f'inline constexpr const char* KEY_{ident} = "{m.key}";')
-        lines.append(f'inline constexpr const char* ID_{ident}  = "{m.ewts_id}";')
+        lines.append(f'inline constexpr const char* EWTS_KEY_{ident} = "{m.key}";')
+        lines.append(f'inline constexpr const char* EWTS_ID_{ident}  = "{m.ewts_id}";')
         lines.append("")
     lines.extend([
         "}  // namespace modules",
@@ -662,15 +662,49 @@ def _generate_fortran_module_keys(modules: List[Module], out_f90: Path, *, regis
     max_id = max(max_id, 1)
     max_desc = max(max_desc, 1)
 
-    keys = ", ".join([f'"{m.key}"' for m in modules])
-    ids = ", ".join([f'"{m.ewts_id}"' for m in modules])
-    descs = ", ".join([f'"{m.description.replace(chr(34), "")}"' for m in modules])  # strip quotes
+    def _chunk(values: List[str], n: int) -> List[List[str]]:
+        return [values[i:i+n] for i in range(0, len(values), n)]
+
+    def _f_array(name: str, len_sym: str, values: List[str], *, per_line: int = 6) -> str:
+        # Fortran 2003+ array constructor with explicit character(len=...) type-spec,
+        # wrapped with continuation lines for readability.
+        # Example:
+        #   character(len=EWTS_KEY_LEN), parameter :: EWTS_KEYS(EWTS_MODULE_COUNT) = &
+        #     [character(len=EWTS_KEY_LEN) :: &
+        #       "a", "b", "c", &
+        #       "d"
+        #     ]
+        lines: List[str] = []
+        lines.append(f'          character(len={len_sym}), parameter :: {name}(EWTS_MODULE_COUNT) = &')
+        lines.append(f'            [character(len={len_sym}) :: &')
+
+        chunks = _chunk(values, per_line)
+        for i, ch in enumerate(chunks):
+            s = ", ".join(ch)
+            # For continued statements, end each value line with '&'.
+            # For all but last chunk, also include a trailing comma before '&'.
+            if i != len(chunks) - 1:
+                s += ", &"
+            else:
+                s += " &"
+            lines.append(f"              {s}")
+        lines.append("            ]")
+        return "\n".join(lines) + "\n"
+
+    keys_vals = [f'"{m.key}"' for m in modules]
+    ids_vals = [f'"{m.ewts_id}"' for m in modules]
+    desc_vals = [f'"{m.description.replace(chr(34), "")}"' for m in modules]  # strip quotes
+
+    arrays_block = "\n".join([
+        _f_array("EWTS_KEYS", "EWTS_KEY_LEN", keys_vals),
+        _f_array("EWTS_IDS", "EWTS_ID_LEN", ids_vals),
+        _f_array("EWTS_DESCS", "EWTS_DESC_LEN", desc_vals, per_line=1),  # descriptions are long; 1 per line
+    ])
 
     content = _f_banner(
         generated_utc=GEN_UTC,
         registry_meta=registry_meta,
-    ) + textwrap.dedent(f"""\
-        module ewts_module_keys
+    ) + textwrap.dedent(f"""        module ewts_module_keys
           implicit none
 
           integer, parameter :: EWTS_MODULE_COUNT = {len(modules)}
@@ -678,10 +712,7 @@ def _generate_fortran_module_keys(modules: List[Module], out_f90: Path, *, regis
           integer, parameter :: EWTS_ID_LEN = {max_id}
           integer, parameter :: EWTS_DESC_LEN = {max_desc}
 
-          character(len=EWTS_KEY_LEN), dimension(EWTS_MODULE_COUNT), parameter :: EWTS_KEYS = (/ {keys} /)
-          character(len=EWTS_ID_LEN),  dimension(EWTS_MODULE_COUNT), parameter :: EWTS_IDS  = (/ {ids} /)
-          character(len=EWTS_DESC_LEN),dimension(EWTS_MODULE_COUNT), parameter :: EWTS_DESCS= (/ {descs} /)
-
+{arrays_block}
         contains
 
           pure function ewts_id_from_key(key) result(ewts_id)
@@ -746,35 +777,10 @@ def _generate_fortran_module_keys(modules: List[Module], out_f90: Path, *, regis
             end do
           end subroutine ewts_descs_from_id
 
-          pure function ewts_first_key_from_id(ewts_id) result(key)
-            character(len=*), intent(in) :: ewts_id
-            character(len=EWTS_KEY_LEN) :: key
-            integer :: i
-            key = ""
-            do i = 1, EWTS_MODULE_COUNT
-              if (trim(EWTS_IDS(i)) == trim(ewts_id)) then
-                key = EWTS_KEYS(i)
-                return
-              end if
-            end do
-          end function ewts_first_key_from_id
-
-          pure function ewts_first_desc_from_id(ewts_id) result(desc)
-            character(len=*), intent(in) :: ewts_id
-            character(len=EWTS_DESC_LEN) :: desc
-            integer :: i
-            desc = ""
-            do i = 1, EWTS_MODULE_COUNT
-              if (trim(EWTS_IDS(i)) == trim(ewts_id)) then
-                desc = EWTS_DESCS(i)
-                return
-              end if
-            end do
-          end function ewts_first_desc_from_id
-
         end module ewts_module_keys
     """)
     _write_text(out_f90, content)
+
 
 
 def _generate_fortran_log_levels(out_f90: Path, *, levels_meta: dict) -> None:

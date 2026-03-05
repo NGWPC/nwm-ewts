@@ -12,9 +12,11 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifdef EWTS_HAVE_NGEN_BRIDGE
-#include "ewts_ngen/ewts_ngen_bridge.h"
+/* Optional NGEN bridge. Present only when linked into an NGEN build. */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
 #endif
+void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
 #define EV_NGEN_RESULTS_DIR "NGEN_RESULTS_DIR"
 #define EV_EWTS_ENABLED     "EWTS_ENABLED"
@@ -25,12 +27,13 @@
 #define EWTS_ID "EWTS"
 #endif
 static char g_ewts_id[64] = EWTS_ID;   /* runtime module id */
+static bool g_use_ngen = false;
 
 static pthread_mutex_t g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int g_initialized = 0;
 static int g_enabled = 1;
-static LogLevel g_level = EWTS_INFO;
+static LogLevel g_level = INFO;
 
 static FILE* g_file = NULL;
 static char g_path[1024] = {0};
@@ -94,16 +97,36 @@ static void pad_ewts_id(void) {
 }
 
 static void utc_timestamp_iso_ms(char* buf, size_t sz) {
+    if (!buf || sz == 0) return;
+
     struct timeval tv;
     gettimeofday(&tv, NULL);
 
     struct tm tm_utc;
     gmtime_r(&tv.tv_sec, &tm_utc);
 
-    char base[32];
-    strftime(base, sizeof(base), "%Y-%m-%dT%H:%M:%S", &tm_utc);
-    long ms = tv.tv_usec / 1000;
-    snprintf(buf, sz, "%s.%03ldZ", base, ms);
+    // Need at least "YYYY-MM-DDTHH:MM:SS.mmmZ" + NUL = 25 bytes
+    if (sz < 25) {
+        buf[0] = '\0';
+        return;
+    }
+
+    size_t n = strftime(buf, sz, "%Y-%m-%dT%H:%M:%S", &tm_utc);
+    if (n == 0) {
+        buf[0] = '\0';
+        return;
+    }
+
+    unsigned int ms = (unsigned int)(tv.tv_usec / 1000);
+    if (ms > 999) ms = 999;
+
+    // Append ".mmmZ"
+    buf[n++] = '.';
+    buf[n++] = (char)('0' + (ms / 100) % 10);
+    buf[n++] = (char)('0' + (ms / 10)  % 10);
+    buf[n++] = (char)('0' + (ms % 10));
+    buf[n++] = 'Z';
+    buf[n]   = '\0';
 }
 
 static void utc_timestamp_compact(char* buf, size_t sz) {
@@ -115,35 +138,35 @@ static void utc_timestamp_compact(char* buf, size_t sz) {
 
 static const char* level_name_padded(LogLevel lvl) {
     switch ((int)lvl) {
-        case EWTS_DEBUG:   return "DEBUG  ";
-        case EWTS_PERFORM: return "PERFORM";
-        case EWTS_INFO:    return "INFO   ";
-        case EWTS_WARNING: return "WARNING";
-        case EWTS_SEVERE:  return "SEVERE ";
-        case EWTS_FATAL:   return "FATAL  ";
+        case DEBUG:   return "DEBUG  ";
+        case PERFORM: return "PERFORM";
+        case INFO:    return "INFO   ";
+        case WARNING: return "WARNING";
+        case SEVERE:  return "SEVERE ";
+        case FATAL:   return "FATAL  ";
         default:           return "NOTSET ";
     }
 }
 
 static LogLevel parse_level(const char* v) {
-    if (!v || v[0] == '\0') return EWTS_NOTSET;
+    if (!v || v[0] == '\0') return NOTSET;
     char s[32];
     trim_copy(v, s, sizeof(s));
-    if (s[0] == '\0') return EWTS_NOTSET;
+    if (s[0] == '\0') return NOTSET;
 
     char* end = NULL;
     long num = strtol(s, &end, 10);
     if (end && *end == '\0' && num >= 0) return (LogLevel)num;
 
-    if (streq_ci(s, "DEBUG"))   return EWTS_DEBUG;
-    if (streq_ci(s, "PERFORM")) return EWTS_PERFORM;
-    if (streq_ci(s, "INFO"))    return EWTS_INFO;
-    if (streq_ci(s, "WARN") || streq_ci(s, "WARNING")) return EWTS_WARNING;
-    if (streq_ci(s, "ERROR") || streq_ci(s, "SEVERE")) return EWTS_SEVERE;
-    if (streq_ci(s, "FATAL") || streq_ci(s, "CRITICAL")) return EWTS_FATAL;
-    if (streq_ci(s, "NOTSET") || streq_ci(s, "NONE")) return EWTS_NOTSET;
+    if (streq_ci(s, "DEBUG"))   return DEBUG;
+    if (streq_ci(s, "PERFORM")) return PERFORM;
+    if (streq_ci(s, "INFO"))    return INFO;
+    if (streq_ci(s, "WARN") || streq_ci(s, "WARNING")) return WARNING;
+    if (streq_ci(s, "ERROR") || streq_ci(s, "SEVERE")) return SEVERE;
+    if (streq_ci(s, "FATAL") || streq_ci(s, "CRITICAL")) return FATAL;
+    if (streq_ci(s, "NOTSET") || streq_ci(s, "NONE")) return NOTSET;
 
-    return EWTS_NOTSET;
+    return NOTSET;
 }
 
 static int dir_exists(const char* path) {
@@ -223,14 +246,25 @@ static void open_standalone_file(void) {
 
 static void load_env_preferences(void) {
     g_enabled = parse_enabled(getenv(EV_EWTS_ENABLED));
-
+    printf("EWTS %s logging is %s\n", g_ewts_id, ((g_enabled)?"ENABLED":"DISABLED"));
+    
     char key[64];
     build_module_loglevel_env(key, sizeof(key));
     LogLevel lvl = parse_level(getenv(key));
-    if ((int)lvl != EWTS_NOTSET) { g_level = lvl; return; }
+    fprintf(stdout, "EWTS %s log level from env var %s is %s\n", g_ewts_id, key, level_name_padded(lvl));
+    fflush(stdout);
+    if ((int)lvl != NOTSET) { 
+        g_level = lvl;
+        fprintf(stdout, "EWTS %s log level set to %s\n", g_ewts_id, level_name_padded(g_level));
+        fflush(stdout);
+        return;
+    }
 
     lvl = parse_level(getenv(EV_EWTS_LOG_LEVEL));
-    g_level = ((int)lvl != EWTS_NOTSET) ? lvl : EWTS_INFO;
+    g_level = ((int)lvl != NOTSET) ? lvl : INFO;
+    fprintf(stdout, "EWTS %s using default log level = %s\n", g_ewts_id, level_name_padded(lvl));
+    fflush(stdout);
+
 }
 
 static void init_once(void) {
@@ -238,13 +272,21 @@ static void init_once(void) {
     g_initialized = 1;
     pad_ewts_id();
     load_env_preferences();
+    if (g_use_ngen && is_ngen_active() && ewts_ngen_log) {
+        printf("EWTS %s using ngen for logging\n", g_ewts_id);
+    }
+    else {
+        printf("EWTS %s logging standalone\n", g_ewts_id);
+    }
+
 }
 
-void EwtsInit(const char* ewts_id) {
+void EwtsInit(const char* ewts_id, bool ewts_ngen) {
     /* Allow caller to set EWTS id before first use. */
     pthread_mutex_lock(&g_log_mutex);
 
     if (!g_initialized) {
+        g_use_ngen = ewts_ngen;
         if (ewts_id && ewts_id[0] != '\0') {
             /* trim/copy into g_ewts_id */
             trim_copy(ewts_id, g_ewts_id, sizeof(g_ewts_id));
@@ -286,13 +328,11 @@ void Log(LogLevel level, const char* fmt, ...) {
     vsnprintf(msg, (size_t)n + 1, fmt, ap);
     va_end(ap);
 
-#ifdef EWTS_HAVE_NGEN_BRIDGE
-    if (is_ngen_active()) {
+    if (g_use_ngen && is_ngen_active() && ewts_ngen_log) {
         ewts_ngen_log(g_ewts_id, (int)level, msg);
         free(msg);
         return;
     }
-#endif
 
     char ts[32];
     utc_timestamp_iso_ms(ts, sizeof(ts));

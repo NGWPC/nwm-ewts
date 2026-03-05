@@ -78,7 +78,7 @@ class Logger {
     static std::string JoinPath(const std::string& a, const std::string& b);
     static std::string EnvVarIdentFromModuleKey(const std::string& key);
 
-    int GetRank() const { return mpiRank; }
+    int GetRank() const { return g_mpiRank; }
 
     // state
     bool        loggingEnabled  = true;
@@ -101,7 +101,10 @@ class Logger {
     
 
     // mpi
-    int mpiRank = 0;
+    int g_mpiRank = 0;
 };
+
+// Placed here to ensure the class is declared before setting this preprocessor symbol
+#define LOG Logger::Log
 
 #endif /* EWTS_NGEN_LOGGER_HPP */

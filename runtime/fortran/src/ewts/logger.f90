@@ -1,5 +1,6 @@
 module logger
   use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
+  use ewts_log_levels, only: ewts_log_level_name
   implicit none
   private
 
@@ -230,7 +231,14 @@ contains
       call get_environment_variable("EWTS_ENABLED", v)
       enabled = parse_enabled(v)
     else
+      call get_environment_variable("EWTS_ENABLED", length=lenv)
+      write(*,'(A)') "EWTS " // trim(g_ewts_id) // " env var not set found"
       enabled = .true.
+    end if
+    if (enabled) then
+        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " logging ENABLED"
+    else 
+        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " logging DISABLED"
     end if
 
     if (trim(adjustl(g_ewts_id)) /= "UNKNOWN") then
@@ -239,7 +247,9 @@ contains
       if (lenv > 0) then
         call get_environment_variable(trim(env_key()), v)
         level_min = parse_level(v)
+        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " log level from env var " // trim(env_key()) // " is " // trim(ewts_log_level_name(level_min))
       else
+        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " log level env var " // trim(env_key()) // " not found"
         level_min = EWTS_NOTSET
       end if
     end if
@@ -250,11 +260,21 @@ contains
       if (lenv > 0) then
         call get_environment_variable("EWTS_LOG_LEVEL", v)
         level_min = parse_level(v)
+        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " global log level from envr var is " // trim(ewts_log_level_name(level_min))
       else
         level_min = EWTS_INFO
+        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " using default log level " // trim(ewts_log_level_name(level_min))
       end if
       if (level_min == EWTS_NOTSET) level_min = EWTS_INFO
     end if
+    write(*,'(A)') "EWTS " // trim(g_ewts_id) // " log level set to " // trim(ewts_log_level_name(level_min))
+
+#ifdef EWTS_HAVE_NGEN_BRIDGE
+    write(*,'(A)') "EWTS " // trim(g_ewts_id) // " using ngen for logging"
+#else
+    write(*,'(A)') "EWTS " // trim(g_ewts_id) // " logging standalone"
+#endif
+
   end subroutine init_once
 
   logical function is_logger_enabled()
@@ -324,7 +344,7 @@ contains
     deallocate(cid, cmsg)
   end subroutine call_bridge
 
-  subroutine write_log(lvl, msg)
+  subroutine write_log(msg, lvl)
     integer, intent(in) :: lvl
     character(len=*), intent(in) :: msg
     character(len=32) :: ts

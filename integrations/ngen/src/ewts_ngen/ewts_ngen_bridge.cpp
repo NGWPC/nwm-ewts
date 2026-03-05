@@ -1,5 +1,5 @@
-#include "ewts_ngen_bridge.h"
-#include "logger.hpp"
+#include "ewts_ngen/ewts_ngen_bridge.h"
+#include "ewts_ngen/logger.hpp"
 
 void ewts_ngen_log(const char* ewts_id, int level, const char* message)
 {

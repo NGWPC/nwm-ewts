@@ -6,10 +6,8 @@
     "PERFORM": 15,
     "INFO": 20,
     "WARNING": 30,
-    "ERROR": 40,
     "SEVERE": 40,
-    "FATAL": 50,
-    "CRITICAL": 50
+    "FATAL": 50
   },
   "canonical_names": {
     "0": "NOTSET",

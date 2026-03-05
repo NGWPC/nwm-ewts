@@ -1,112 +1,74 @@
-# EWTS — Error, Warning, and Trapping System
+# EWTS -- Environmental Workflow Traceability System
 
-EWTS is a lightweight, multi-language **logging and error-handling system** designed for scientific and engineering software.  
-It provides consistent semantics across **Python, C++, C, and Fortran**, while remaining idiomatic within each language ecosystem.
+EWTS is a lightweight, multi-language logging runtime used within the
+National Water Model (NWM) ecosystem.
 
-The goal of EWTS is **clarity, portability, and predictability**, not feature bloat.
+It provides consistent log formatting, module identity handling,
+environment-based configuration, and optional NGEN integration across:
 
----
+-   C
+-   C++
+-   Fortran
+-   Python
 
-## Features
-
-- Consistent log levels across languages
-- UTC timestamps with optional millisecond precision
-- Configurable output destinations (console, file)
-- Environment-variable–driven configuration
-- Minimal dependencies
-- Suitable for HPC, CI, and long-running simulations
-
----
+------------------------------------------------------------------------
 
 ## Repository Structure
-The repository contains the following directories:
 
-- python/     : Python package, pip-installable
-- cpp/        : C++ library, built with CMake
-- c/          : C library, built with CMake
-- fortran/    : Fortran module, built with CMake
-- docs/       : Cross-language documentation
-- LICENSE     : License for the repository
+- runtime/c
+- runtime/cpp
+- runtime/fortran
+- runtime/python
 
-Each language implementation is self-contained and documented in its own subdirectory.
+------------------------------------------------------------------------
 
-## Python
+## Build (C / C++ / Fortran)
 
-Located in python/ewts.
+cmake -B build -S runtime -DCMAKE_BUILD_TYPE=Release cmake --build build -j
 
-### Install (from Git):
+### With NGEN integration enabled
 
-    pip install git+https://github.com/NGWPC/nwm-ewts.git#subdirectory=python
+cmake -B build -S runtime -DCMAKE_BUILD_TYPE=Release -DEWTS_WITH_NGEN=ON
+cmake --build build -j
 
-### Usage:
-```
-from ewts.logger import configure_logger
-LOG = configure_logger("LSTM")
-LOG.info("Hello from EWTS")
-```
-### Development:
+------------------------------------------------------------------------
 
-    cd python/ewts
-    pip install -e .[dev]
-    pytest
+## Install (CMake)
 
-## C++
+cmake --install build --prefix `<install_dir>`{=html}
 
-Located in cpp/.
+------------------------------------------------------------------------
 
-### Usage with CMake FetchContent:
-```
-include(FetchContent)
+## Python Package
 
-FetchContent_Declare(
-    ewts
-    GIT_REPOSITORY https://github.com/NGWPC/nmm-ewts.git
-    GIT_TAG v1.0.0
-    SOURCE_SUBDIR cpp
-)
+Install in editable mode (recommended for development):
 
-FetchContent_MakeAvailable(ewts)
+pip install -e runtime/python/ewts
 
-target_link_libraries(my_app PRIVATE ewts::logger)
-```
-### Usage:
-```
-#include <ewts/logger.hpp>
+Build distribution artifacts:
 
-```
-## C
+python -m build runtime/python/ewts
 
-Located in c/.
+------------------------------------------------------------------------
 
-### Usage:
-```
-#include <ewts/logger.h>
+## Runtime Configuration
 
-```
-## Fortran
+Environment variables:
 
-Located in fortran/.
+-   EWTS_ENABLED
+-   EWTS_LOG_DIR
+-   `<MODULE>`{=html}\_LOGLEVEL
+-   NGEN_RESULTS_DIR (when integrated with NGEN)
 
-Usage:
-```
-use ewts_logger
-```
+------------------------------------------------------------------------
 
-# Design Philosophy
------------------
+## Initialization
 
-- Consistency across languages, not identical implementations
-- Explicit configuration, primarily via environment variables
-- Minimal global state
-- No hidden I/O
-- Easy to embed, easy to remove
+Each language runtime supports explicit initialization:
 
-# License
--------
-This project is licensed under the terms of the LICENSE file.
+-   C: EwtsInit(const char\* ewts_id)
+-   C++: ewts::EwtsInit(std::string_view ewts_id)
+-   Python: ewts.init(...)
 
-# Status
-------
-
-EWTS is under active development. APIs are stabilizing but may change prior to a 1.0 release.
-
+If not explicitly initialized, EWTS defaults to "EWTS" as the module
+identifier.
