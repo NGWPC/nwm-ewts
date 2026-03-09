@@ -1,4 +1,8 @@
-add_library(ewts_cpp
+#
+# runtime/cpp/CMakeLists.txt
+#
+
+add_library(ewts_cpp SHARED
   src/ewts/logger.cpp
 )
 
@@ -14,7 +18,7 @@ set_target_properties(ewts_cpp PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )
 
-add_library(ewts::cpp ALIAS ewts_cpp)
+add_library(ewts::ewts_cpp ALIAS ewts_cpp)
 
 install(TARGETS ewts_cpp
   EXPORT ewtsTargets

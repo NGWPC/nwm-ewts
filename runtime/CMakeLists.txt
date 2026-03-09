@@ -3,7 +3,6 @@
 #
 
 cmake_minimum_required(VERSION 3.20)
-project(ewts LANGUAGES C CXX Fortran)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -51,7 +50,7 @@ configure_package_config_file(
 
 write_basic_package_version_file(
   "${CMAKE_CURRENT_BINARY_DIR}/ewtsConfigVersion.cmake"
-  VERSION 0.1.0
+  VERSION ${CMAKE_PROJECT_VERSION}
   COMPATIBILITY SameMajorVersion
 )
 
@@ -60,3 +59,46 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/ewtsConfigVersion.cmake"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ewts"
 )
+
+# ----- Python wheel -----
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(EWTS_PY_PKG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/python/ewts")
+set(EWTS_PY_DIST_DIR "${EWTS_PY_PKG_DIR}/dist")
+
+add_custom_target(ewts_python_dist ALL
+  COMMAND "${Python3_EXECUTABLE}" -m pip install --upgrade build
+  COMMAND "${Python3_EXECUTABLE}" -m build
+  WORKING_DIRECTORY "${EWTS_PY_PKG_DIR}"
+  COMMENT "Building EWTS Python wheel"
+)
+
+# Install only the most recent wheel into the EWTS install tree
+install(CODE "
+  file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/python/dist\")
+
+  file(GLOB EWTS_WHEELS \"${EWTS_PY_DIST_DIR}/*.whl\")
+
+  set(LATEST_WHEEL \"\")
+  set(LATEST_WHEEL_TIME 0)
+
+  foreach(f IN LISTS EWTS_WHEELS)
+    file(TIMESTAMP \"\${f}\" TS \"%s\")
+    if(TS GREATER LATEST_WHEEL_TIME)
+      set(LATEST_WHEEL \"\${f}\")
+      set(LATEST_WHEEL_TIME \"\${TS}\")
+    endif()
+  endforeach()
+
+  if(LATEST_WHEEL)
+    message(STATUS \"Installing latest EWTS wheel: \${LATEST_WHEEL}\")
+    file(INSTALL
+      DESTINATION \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/python/dist\"
+      TYPE FILE
+      FILES \"\${LATEST_WHEEL}\"
+    )
+  else()
+    message(WARNING \"No EWTS wheel found in ${EWTS_PY_DIST_DIR}\")
+  endif()
+")
