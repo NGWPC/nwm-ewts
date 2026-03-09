@@ -10,9 +10,16 @@ _DEFAULT_LOG_DIR_NAME = "run_logs"
 
 @dataclass(frozen=True)
 class EwtsConfig:
+    enabled: bool
     ngen_active: bool
     log_dir: Path
     default_level: int
+
+def _env_bool(name: str, default: bool = True) -> bool:
+    v = getenv_any(name, None)
+    if v is None:
+        return default
+    return str(v).strip().lower() not in ("0", "false", "off", "no")
 
 def is_ngen_active() -> bool:
     # ngen provides NGEN_RESULTS_DIR when running within ngen.
@@ -62,7 +69,8 @@ def get_level_for_ewts_id(ewts_id: str) -> int:
 
 def load_config(ewts_id: str) -> EwtsConfig:
     ngen = is_ngen_active()
+    enabled = _env_bool("EWTS_ENABLED", True)
     # Only used for standalone; safe to compute always.
     log_dir = get_log_dir()
     default_level = get_level_for_ewts_id(ewts_id)
-    return EwtsConfig(ngen_active=ngen, log_dir=log_dir, default_level=default_level)
+    return EwtsConfig(ngen_active=ngen, enabled=enabled, log_dir=log_dir, default_level=default_level)

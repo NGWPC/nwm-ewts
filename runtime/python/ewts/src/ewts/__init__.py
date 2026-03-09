@@ -6,3 +6,18 @@ Public API:
 """
 # This unused-looking import is deliberate — it’s part of the public API.
 from .logger import get_logger, EwtsLogger  # noqa: F401
+from . import modules as _modules
+
+# Re-export all *_ID constants from ewts.modules
+for _name in dir(_modules):
+    if _name.endswith("_ID") and _name.isupper():
+        globals()[_name] = getattr(_modules, _name)
+
+__all__ = (
+    ["get_logger", "EwtsLogger",]
+    + [
+        _name 
+        for _name in dir(_modules)
+        if _name.endswith("_ID") and _name.isupper()
+    ]
+)

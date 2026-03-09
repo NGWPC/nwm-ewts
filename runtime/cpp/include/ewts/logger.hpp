@@ -16,13 +16,17 @@ enum class LogLevel : int {
 };
 
 // Optional: call before first Log to set EWTS ID; otherwise defaults to EWTS.
-void EwtsInit(std::string_view ewts_id);
+void EwtsInit(std::string_view ewts_id, bool ewts_ngen = true);
 
 bool IsLoggingEnabled();
 LogLevel GetLogLevel();
 void Log(LogLevel level, std::string_view message);
-void Logf(LogLevel level, const char* fmt, ...);
+void Log(LogLevel level, const char* fmt, ...);
+void Log(std::string_view message, LogLevel level);
 
 }  // namespace ewts
+
+// Placed here to ensure the class is declared before setting this preprocessor symbol
+#define LOG ::ewts::Log
 
 #endif /* EWTS_LOGGER_HPP */

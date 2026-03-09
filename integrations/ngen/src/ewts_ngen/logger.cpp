@@ -251,7 +251,7 @@ void Logger::ApplyEnvVars(bool set) {
     ::setenv(kEnvEwtsEnabled, loggingEnabled ? "1" : "0", 1);
 #endif
 
-    // <MODULE>_LOGLEVEL=<10|20|30|40|50>
+    // <MODULE>_LOGLEVEL=<10|15|20|30|40|50>
     for (const auto& kv : moduleLogLevels) {
         const std::string mod_key = kv.first;
         const LogLevel lvl = kv.second;
@@ -265,7 +265,7 @@ void Logger::ApplyEnvVars(bool set) {
 #else
         ::setenv(env_name.c_str(), env_val.c_str(), 1);
 #endif
-        std::cout << "EWTS " << env_name << " set to " << env_val << std::endl;
+        std::cout << "EWTS " << env_name << " set to " << LevelToFixedString(lvl) << std::endl;
 
     }
 }

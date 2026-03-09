@@ -14,9 +14,14 @@
 #include <sys/time.h>
 #include <time.h>
 
-#ifdef EWTS_HAVE_NGEN_BRIDGE
-#include "ewts_ngen/ewts_ngen_bridge.h"
+#include <dlfcn.h>
+#include <iostream>
+
+/* Optional NGEN bridge. Present only when linked into an NGEN build. */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
 #endif
+void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
 namespace ewts {
 
@@ -29,6 +34,7 @@ static constexpr const char* EV_EWTS_LOG_LEVEL   = "EWTS_LOG_LEVEL";
 #define EWTS_ID "EWTS"
 #endif
 static std::string g_ewts_id = EWTS_ID;
+static bool g_use_ngen = false;
 
 static std::once_flag g_once;
 static bool g_enabled = true;
@@ -45,6 +51,25 @@ static std::string g_ewts_id_padded;
 static bool is_ngen_active() {
     const char* v = std::getenv(EV_NGEN_RESULTS_DIR);
     return (v && *v);
+}
+
+using ewts_ngen_log_fn = void(*)(const char*, int, const char*);
+static ewts_ngen_log_fn g_ngen_log = nullptr;
+
+// Resolve ewts_ngen_log dynamically because ngen loads model plugins
+// with dlopen(), which may hide symbols from RTLD_DEFAULT depending
+// on loader flags. Using dlsym ensures we can find the bridge even
+// if it wasn't linked as a hard dependency.
+static ewts_ngen_log_fn resolve_ngen_log()
+{
+    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_log"))
+        return reinterpret_cast<ewts_ngen_log_fn>(sym);
+    return nullptr;
+}
+
+static inline bool have_ngen_bridge()
+{
+    return g_use_ngen && is_ngen_active() && (g_ngen_log != nullptr);
 }
 
 static bool parse_enabled(const char* v) {
@@ -193,20 +218,43 @@ static void init_once() {
     }    
     
     g_enabled = parse_enabled(std::getenv(EV_EWTS_ENABLED));
+    std::cout << "EWTS " << g_ewts_id << " logging is " << ((g_enabled)?"ENABLED":"DISABLED") << std::endl;
+    fflush(stdout);
 
     auto key = module_loglevel_env();
     auto lvl = parse_level(std::getenv(key.c_str()));
-    if ((int)lvl != 0) g_level = lvl;
+    std::cout << "EWTS " << g_ewts_id << " log level from env var " << key << " is " << level_name_padded(lvl) << std::endl;
+    fflush(stdout);
+    if ((int)lvl != 0) {
+        g_level = lvl;
+        std::cout << "EWTS " << g_ewts_id << " log level set to " << level_name_padded(g_level) << std::endl;
+    } 
     else {
         lvl = parse_level(std::getenv(EV_EWTS_LOG_LEVEL));
         g_level = ((int)lvl != 0) ? lvl : LogLevel::INFO;
+        std::cout << "EWTS " << g_ewts_id << " using default log level = " << level_name_padded(g_level) << std::endl;
     }
+    fflush(stdout);
 
     pad_id();
+
+    // Set the bridge method
+    g_ngen_log = resolve_ngen_log();
+
+    if (have_ngen_bridge()) {
+        std::cout << "EWTS " << g_ewts_id << " using ngen for logging " << std::endl;
+    }
+    else {
+        std::cout << "EWTS " << g_ewts_id << " logging standalone " << std::endl;
+    }
+
+
+
 }
 
-void EwtsInit(std::string_view ewts_id) {
+void EwtsInit(std::string_view ewts_id, bool ewts_ngen) {
     {
+        g_use_ngen = ewts_ngen;
         std::lock_guard<std::mutex> lk(g_init_mtx);
         if (!ewts_id.empty()) g_requested_ewts_id = std::string(ewts_id);
     }
@@ -228,13 +276,11 @@ void Log(LogLevel level, std::string_view message) {
     if (!g_enabled) return;
     if ((int)level < (int)g_level) return;
 
-#ifdef EWTS_HAVE_NGEN_BRIDGE
-    if (is_ngen_active()) {
+    if (have_ngen_bridge()) {
         std::string msg(message);
-        ewts_ngen_log(g_ewts_id.c_str(), (int)level, msg.c_str());
+        g_ngen_log(g_ewts_id.c_str(), (int)level, msg.c_str());
         return;
     }
-#endif
 
     const auto ts = utc_timestamp_iso_ms();
     const char* lvl = level_name_padded(level);
@@ -257,7 +303,11 @@ void Log(LogLevel level, std::string_view message) {
     }
 }
 
-void Logf(LogLevel level, const char* fmt, ...) {
+void Log(std::string_view message, LogLevel level) {
+    Log(level, message);
+}
+
+void Log(LogLevel level, const char* fmt, ...) {
     if (!fmt) return;
 
     va_list ap;
@@ -269,8 +319,9 @@ void Logf(LogLevel level, const char* fmt, ...) {
     if (n < 0) { va_end(ap); return; }
 
     std::string buf;
-    buf.resize((size_t)n);
+    buf.resize((size_t)n + 1);
     std::vsnprintf(buf.data(), (size_t)n + 1, fmt, ap);
+    buf.resize((size_t)n); // drop the trailing '\0'
     va_end(ap);
 
     Log(level, buf);

@@ -278,7 +278,7 @@ static void init_once(void) {
     else {
         printf("EWTS %s logging standalone\n", g_ewts_id);
     }
-
+    fflush(stdout);
 }
 
 void EwtsInit(const char* ewts_id, bool ewts_ngen) {

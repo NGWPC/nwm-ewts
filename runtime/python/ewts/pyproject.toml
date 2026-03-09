@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ewts"
-version = "3.1.0.0.0"  # OWP requires a 3.1 prefix
+dynamic = ["version"]
 description = "NWM EWTS runtime (Error, Warning and Trapping System)"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -19,6 +19,9 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "ewts._version.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

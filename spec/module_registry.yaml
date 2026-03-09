@@ -9,6 +9,9 @@ modules:
   - key: cfe-x
     ewts_id: CFE
     description: "Conceptual Functional Equivalent to the National Water Model (Xianjiang)"
+  - key: cfe
+    ewts_id: CFE
+    description: "Conceptual Functional Equivalent to the National Water Model (Generic for logging)"
   - key: forcing
     ewts_id: FORCING
     description: "Forcing Engine"
