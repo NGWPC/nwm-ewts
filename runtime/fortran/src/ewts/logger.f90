@@ -12,16 +12,21 @@ module logger
   integer, parameter, public :: EWTS_SEVERE  = 40
   integer, parameter, public :: EWTS_FATAL   = 50
 
-  public :: write_log, is_logger_enabled, get_log_level
-  public :: logger_init
+  type :: logger_state
+    character(len=64)   :: ewts_id = "EWTS"
+    character(len=8)    :: ewts_id_padded = "EWTS    "
+    logical             :: initialized = .false.
+    logical             :: enabled = .true.
+    integer             :: level_min = EWTS_INFO
+    integer             :: unit_log = -1
+    character(len=1024) :: path = ""
+  end type logger_state
 
-  logical :: initialized = .false.
-  logical :: enabled = .true.
-  integer :: level_min = EWTS_INFO
-  integer :: unit_log = -1
-  character(len=1024) :: path = ""
-  character(len=8) :: g_ewts_id = "UNKNOWN "   ! width matches your g_ewts_id width (8)
-  
+  type(logger_state), allocatable, save :: g_loggers(:)
+
+  public :: write_log, is_logger_enabled, get_log_level, logger_init
+  public :: write_log_module, is_logger_enabled_module, get_log_level_module, logger_init_module
+
 #ifdef EWTS_HAVE_NGEN_BRIDGE
   interface
     subroutine ewts_ngen_log(ewts_id, level, message) bind(C, name="ewts_ngen_log")
@@ -37,10 +42,14 @@ contains
 
   subroutine logger_init(id)
     character(len=*), intent(in) :: id
-    ! store as fixed-width 8 chars (pad/truncate)
-    g_ewts_id = "        "
-    g_ewts_id(1:min(len_trim(id),len(g_ewts_id))) = id(1:min(len_trim(id),len(g_ewts_id)))
+    call logger_init_module(id)
   end subroutine logger_init
+
+  subroutine logger_init_module(id)
+    character(len=*), intent(in) :: id
+    integer :: idx
+    call get_logger_index(id, idx)
+  end subroutine logger_init_module
 
   subroutine upper_inplace(s)
     character(len=*), intent(inout) :: s
@@ -114,18 +123,22 @@ contains
     end select
   end function level_name_padded
 
-  character(len=8) function ewts_id_padded()
+  subroutine build_ewts_id_padded(id_in, id8)
+    character(len=*), intent(in)  :: id_in
+    character(len=8), intent(out) :: id8
     character(len=64) :: s
     integer :: n
-    s = adjustl(trim(g_ewts_id))
+    s = adjustl(trim(id_in))
     call upper_inplace(s)
     n = len_trim(s)
     if (n >= 8) then
-      ewts_id_padded = s(1:8)
+      id8 = s(1:8)
+    else if (n > 0) then
+      id8 = s(1:n)//repeat(" ", 8-n)
     else
-      ewts_id_padded = s(1:n)//repeat(" ", 8-n)
+      id8 = "EWTS    "
     end if
-  end function ewts_id_padded
+  end subroutine build_ewts_id_padded
 
   subroutine utc_timestamp_iso_ms(ts)
     character(len=*), intent(out) :: ts
@@ -211,87 +224,161 @@ contains
     end select
   end function days_in_month
 
-  function env_key() result(k)
+  function env_key_for(id) result(k)
+    character(len=*), intent(in) :: id
     character(len=64) :: k
     character(len=64) :: s
-    s = adjustl(trim(g_ewts_id))
+    s = adjustl(trim(id))
     call upper_inplace(s)
     k = trim(s)//"_LOGLEVEL"
-  end function env_key
+  end function env_key_for
 
-  subroutine init_once()
+  subroutine ensure_registry()
+    if (.not. allocated(g_loggers)) then
+      allocate(g_loggers(0))
+    end if
+  end subroutine ensure_registry
+
+  subroutine append_logger(id, idx)
+    character(len=*), intent(in) :: id
+    integer, intent(out) :: idx
+    type(logger_state), allocatable :: tmp(:)
+    integer :: n
+
+    call ensure_registry()
+    n = size(g_loggers)
+
+    allocate(tmp(n+1))
+    if (n > 0) tmp(1:n) = g_loggers
+    call move_alloc(tmp, g_loggers)
+
+    idx = n + 1
+    g_loggers(idx)%ewts_id = " "
+    g_loggers(idx)%ewts_id = adjustl(trim(id))
+    call upper_inplace(g_loggers(idx)%ewts_id)
+    call build_ewts_id_padded(g_loggers(idx)%ewts_id, g_loggers(idx)%ewts_id_padded)
+    g_loggers(idx)%initialized = .false.
+    g_loggers(idx)%enabled = .true.
+    g_loggers(idx)%level_min = EWTS_INFO
+    g_loggers(idx)%unit_log = -1
+    g_loggers(idx)%path = ""
+  end subroutine append_logger
+
+  subroutine get_logger_index(id, idx)
+    character(len=*), intent(in) :: id
+    integer, intent(out) :: idx
+    character(len=64) :: key
+    integer :: i
+
+    key = adjustl(trim(id))
+    if (len_trim(key) == 0) key = "EWTS"
+    call upper_inplace(key)
+
+    call ensure_registry()
+    do i = 1, size(g_loggers)
+      if (trim(g_loggers(i)%ewts_id) == trim(key)) then
+        idx = i
+        call init_logger_state(idx)
+        return
+      end if
+    end do
+
+    call append_logger(trim(key), idx)
+    call init_logger_state(idx)
+  end subroutine get_logger_index
+
+  subroutine init_logger_state(idx)
+    integer, intent(in) :: idx
     integer :: lenv
     character(len=256) :: v
-    if (initialized) return
-    initialized = .true.
+    character(len=64) :: key
+
+    if (g_loggers(idx)%initialized) return
+    g_loggers(idx)%initialized = .true.
 
     lenv = 0
     call get_environment_variable("EWTS_ENABLED", length=lenv)
     if (lenv > 0) then
       call get_environment_variable("EWTS_ENABLED", v)
-      enabled = parse_enabled(v)
+      g_loggers(idx)%enabled = parse_enabled(v)
     else
-      call get_environment_variable("EWTS_ENABLED", length=lenv)
-      write(*,'(A)') "EWTS " // trim(g_ewts_id) // " env var not set found"
-      enabled = .true.
-    end if
-    if (enabled) then
-        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " logging ENABLED"
-    else 
-        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " logging DISABLED"
+      g_loggers(idx)%enabled = .true.
     end if
 
-    if (trim(adjustl(g_ewts_id)) /= "UNKNOWN") then
-      lenv = 0
-      call get_environment_variable(trim(env_key()), length=lenv)
-      if (lenv > 0) then
-        call get_environment_variable(trim(env_key()), v)
-        level_min = parse_level(v)
-        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " log level from env var " // trim(env_key()) // " is " // trim(ewts_log_level_name(level_min))
-      else
-        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " log level env var " // trim(env_key()) // " not found"
-        level_min = EWTS_NOTSET
-      end if
+    if (g_loggers(idx)%enabled) then
+      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging ENABLED"
+    else
+      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging DISABLED"
     end if
 
-    if (level_min == EWTS_NOTSET) then
+    key = env_key_for(g_loggers(idx)%ewts_id)
+    lenv = 0
+    call get_environment_variable(trim(key), length=lenv)
+    if (lenv > 0) then
+      call get_environment_variable(trim(key), v)
+      g_loggers(idx)%level_min = parse_level(v)
+      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " log level from env var " // trim(key) // " is " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
+    else
+      g_loggers(idx)%level_min = EWTS_NOTSET
+      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " log level env var " // trim(key) // " not found"
+    end if
+
+    if (g_loggers(idx)%level_min == EWTS_NOTSET) then
       lenv = 0
       call get_environment_variable("EWTS_LOG_LEVEL", length=lenv)
       if (lenv > 0) then
         call get_environment_variable("EWTS_LOG_LEVEL", v)
-        level_min = parse_level(v)
-        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " global log level from envr var is " // trim(ewts_log_level_name(level_min))
+        g_loggers(idx)%level_min = parse_level(v)
+        write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " global log level from env var is " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
       else
-        level_min = EWTS_INFO
-        write(*,'(A)') "EWTS " // trim(g_ewts_id) // " using default log level " // trim(ewts_log_level_name(level_min))
+        g_loggers(idx)%level_min = EWTS_INFO
+        write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " using default log level " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
       end if
-      if (level_min == EWTS_NOTSET) level_min = EWTS_INFO
+      if (g_loggers(idx)%level_min == EWTS_NOTSET) g_loggers(idx)%level_min = EWTS_INFO
     end if
-    write(*,'(A)') "EWTS " // trim(g_ewts_id) // " log level set to " // trim(ewts_log_level_name(level_min))
+
+    write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " log level set to " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
 
 #ifdef EWTS_HAVE_NGEN_BRIDGE
-    write(*,'(A)') "EWTS " // trim(g_ewts_id) // " using ngen for logging"
+    write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " using ngen for logging"
 #else
-    write(*,'(A)') "EWTS " // trim(g_ewts_id) // " logging standalone"
+    write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging standalone"
 #endif
-
-  end subroutine init_once
+  end subroutine init_logger_state
 
   logical function is_logger_enabled()
-    call init_once()
-    is_logger_enabled = enabled
+    integer :: idx
+    call get_logger_index("EWTS", idx)
+    is_logger_enabled = g_loggers(idx)%enabled
   end function is_logger_enabled
 
+  logical function is_logger_enabled_module(id)
+    character(len=*), intent(in) :: id
+    integer :: idx
+    call get_logger_index(id, idx)
+    is_logger_enabled_module = g_loggers(idx)%enabled
+  end function is_logger_enabled_module
+
   integer function get_log_level()
-    call init_once()
-    get_log_level = level_min
+    integer :: idx
+    call get_logger_index("EWTS", idx)
+    get_log_level = g_loggers(idx)%level_min
   end function get_log_level
 
-  subroutine open_standalone_file()
+  integer function get_log_level_module(id)
+    character(len=*), intent(in) :: id
+    integer :: idx
+    call get_logger_index(id, idx)
+    get_log_level_module = g_loggers(idx)%level_min
+  end function get_log_level_module
+
+  subroutine open_standalone_file(idx)
+    integer, intent(in) :: idx
     integer :: lenv, ios
     character(len=1024) :: dir
     character(len=15) :: ts
-    if (unit_log > 0) return
+
+    if (g_loggers(idx)%unit_log > 0) return
 
     lenv = 0
     call get_environment_variable("EWTS_LOG_DIR", length=lenv)
@@ -310,27 +397,28 @@ contains
 
     call execute_command_line("mkdir -p " // trim(dir), wait=.true.)
     call utc_timestamp_compact(ts)
-    path = trim(dir)//"/"//trim(g_ewts_id)//"_"//ts//".log"
+    g_loggers(idx)%path = trim(dir)//"/"//trim(g_loggers(idx)%ewts_id)//"_"//ts//".log"
 
-    open(newunit=unit_log, file=trim(path), status="unknown", position="append", action="write", iostat=ios)
-    if (ios /= 0) unit_log = -1
+    open(newunit=g_loggers(idx)%unit_log, file=trim(g_loggers(idx)%path), status="unknown", &
+         position="append", action="write", iostat=ios)
+    if (ios /= 0) g_loggers(idx)%unit_log = -1
   end subroutine open_standalone_file
 
-  subroutine call_bridge(lvl, msg)
-    use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
+  subroutine call_bridge(ewts_id, lvl, msg)
     integer, intent(in) :: lvl
+    character(len=*), intent(in) :: ewts_id
     character(len=*), intent(in) :: msg
     character(kind=c_char), allocatable :: cid(:), cmsg(:)
     integer :: n1, n2, i
 
-    n1 = len_trim(g_ewts_id)
+    n1 = len_trim(ewts_id)
     n2 = len_trim(msg)
 
     allocate(cid(n1+1))
     allocate(cmsg(n2+1))
 
     do i = 1, n1
-      cid(i) = transfer(g_ewts_id(i:i), cid(i))
+      cid(i) = transfer(ewts_id(i:i), cid(i))
     end do
     cid(n1+1) = c_null_char
 
@@ -345,34 +433,42 @@ contains
   end subroutine call_bridge
 
   subroutine write_log(msg, lvl)
-    integer, intent(in) :: lvl
     character(len=*), intent(in) :: msg
+    integer, intent(in) :: lvl
+    call write_log_module("EWTS", msg, lvl)
+  end subroutine write_log
+
+  subroutine write_log_module(id, msg, lvl)
+    character(len=*), intent(in) :: id
+    character(len=*), intent(in) :: msg
+    integer, intent(in) :: lvl
+    integer :: idx
     character(len=32) :: ts
     character(len=8) :: id8
     character(len=7) :: lv7
 
-    call init_once()
-    if (.not. enabled) return
-    if (lvl < level_min) return
+    call get_logger_index(id, idx)
+    if (.not. g_loggers(idx)%enabled) return
+    if (lvl < g_loggers(idx)%level_min) return
 
 #ifdef EWTS_HAVE_NGEN_BRIDGE
     if (is_ngen_active()) then
-      call call_bridge(lvl, msg)
+      call call_bridge(trim(g_loggers(idx)%ewts_id), lvl, msg)
       return
     end if
 #endif
 
-    call open_standalone_file()
+    call open_standalone_file(idx)
     call utc_timestamp_iso_ms(ts)
-    id8 = ewts_id_padded()
+    id8 = g_loggers(idx)%ewts_id_padded
     lv7 = level_name_padded(lvl)
 
-    if (unit_log > 0) then
-      write(unit_log, "(A,' ',A,' ',A,' ',A)") trim(ts), id8, lv7, trim(msg)
-      flush(unit_log)
+    if (g_loggers(idx)%unit_log > 0) then
+      write(g_loggers(idx)%unit_log, "(A,' ',A,' ',A,' ',A)") trim(ts), id8, lv7, trim(msg)
+      flush(g_loggers(idx)%unit_log)
     else
       write(*, "(A,' ',A,' ',A,' ',A)") trim(ts), id8, lv7, trim(msg)
     end if
-  end subroutine write_log
+  end subroutine write_log_module
 
 end module logger
