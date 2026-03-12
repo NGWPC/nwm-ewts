@@ -1,65 +1,62 @@
-import logging
-import pytest
-from troute_ewts.formatter import CustomFormatter
-from troute_ewts.constants import MODULE_NAME
+import re
 
-@pytest.fixture
-def formatter():
-    fmt = "%(asctime)s %(levelname_padded)s %(message)s"
-    return CustomFormatter(fmt=fmt, datefmt="%Y-%m-%dT%H:%M:%S")
-
-@pytest.mark.parametrize(
-    "level,expected",
-    [
-        (logging.DEBUG, "DEBUG"),
-        (logging.INFO, "INFO"),
-        (logging.WARNING, "WARNING"),
-        (logging.ERROR, "SEVERE"),
-        (logging.CRITICAL, "FATAL"),
-    ]
+from ewts.formatter import (
+    iso_utc_timestamp_ms,
+    compact_utc_timestamp,
+    pad_ewts_id,
+    fixed_level_name,
+    format_prefix,
+    split_lines,
+    EWTS_ID_WIDTH,
+    LEVEL_WIDTH,
 )
-def test_level_name_mapping(formatter, level, expected):
-    record = logging.LogRecord(
-        name=MODULE_NAME,
-        level=level,
-        pathname="test",
-        lineno=0,
-        msg="Test message",
-        args=None,
-        exc_info=None
-    )
-    formatted = formatter.format(record)
-    # Level name should appear in formatted string
-    assert expected in formatted
+from ewts.log_levels import LEVELS
 
-def test_utc_timestamp(formatter):
-    record = logging.LogRecord(
-        name=MODULE_NAME,
-        level=logging.INFO,
-        pathname="test",
-        lineno=0,
-        msg="UTC test",
-        args=None,
-        exc_info=None
-    )
-    formatted = formatter.format(record)
-    # Timestamp should be in UTC format "YYYY-MM-DDTHH:MM:SS"
-    ts_str = formatted.split()[0]
-    from datetime import datetime
-    dt = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S")
-    # It's enough to check it parses without error
 
-def test_trailing_whitespace_stripped(formatter):
-    record = logging.LogRecord(
-        name=MODULE_NAME,
-        level=logging.INFO,
-        pathname="test",
-        lineno=0,
-        msg="Message with space   \n",
-        args=None,
-        exc_info=None
-    )
-    formatted = formatter.format(record)
-    # Trailing whitespace/newline should be removed
-    assert "   \n" not in formatted
-    assert formatted.endswith("Message with space")
+def test_iso_utc_timestamp_ms_format():
+    ts = iso_utc_timestamp_ms()
+    # YYYY-MM-DDTHH:MM:SS.mmmZ
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", ts)
+
+
+def test_compact_utc_timestamp_format():
+    ts = compact_utc_timestamp()
+    assert re.fullmatch(r"\d{8}T\d{6}", ts)
+
+
+def test_pad_ewts_id_width_and_case():
+    out = pad_ewts_id("abc")
+    assert out == "ABC" + (" " * (EWTS_ID_WIDTH - 3))
+    assert len(out) == EWTS_ID_WIDTH
+
+    out2 = pad_ewts_id("ABCDEFGHIJK")
+    assert out2 == "ABCDEFGH"
+    assert len(out2) == EWTS_ID_WIDTH
+
+
+def test_fixed_level_name_padding_and_error_maps_to_severe():
+    out = fixed_level_name(LEVELS["INFO"])
+    assert len(out) == LEVEL_WIDTH
+    assert out.strip() == "INFO"
+
+    out2 = fixed_level_name(LEVELS["SEVERE"])  # 40
+    assert len(out2) == LEVEL_WIDTH
+    assert out2.strip() == "SEVERE"
+
+
+def test_format_prefix_shape():
+    pfx = format_prefix("TROUTE", LEVELS["WARNING"])
+    # format: "<ts> <8 chars> <7 chars>" (id and level include padding spaces)
+    m = re.fullmatch(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z) (.{8}) (.{7})", pfx)
+    assert m is not None
+    ts, ewts_id, lvl = m.groups()
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", ts)
+    assert len(ewts_id) == EWTS_ID_WIDTH
+    assert len(lvl) == LEVEL_WIDTH
+
+
+def test_split_lines_behavior():
+    assert split_lines("") == [""]
+    assert split_lines("a\nb") == ["a", "b"]
+    assert split_lines("a\n") == ["a"]
+    assert split_lines(None) == [""]

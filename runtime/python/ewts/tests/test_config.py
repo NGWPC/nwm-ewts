@@ -1,81 +1,68 @@
+import logging
+from pathlib import Path
+
 import pytest
 
-import logging
-from troute_ewts.config import configure_logging, translate_ngwpc_log_level
-from troute_ewts.constants import MODULE_NAME, EV_EWTS_LOGGING
+from ewts.config import (
+    is_ngen_active,
+    get_log_dir,
+    get_default_level,
+    get_level_for_ewts_id,
+    load_config,
+)
+from ewts.log_levels import LEVELS
 
-# ------------------------------
-def test_configure_logging_default(clean_ewts_env):
-    logger = configure_logging()
 
-    assert logger.name == MODULE_NAME
-    assert logger.level == logging.INFO
-    assert not logger.disabled
+def test_is_ngen_active(clean_ewts_env, monkeypatch):
+    assert is_ngen_active() is False
+    monkeypatch.setenv("NGEN_RESULTS_DIR", "/tmp/results")
+    assert is_ngen_active() is True
 
-# ------------------------------
-def test_configure_logging_idempotent(clean_ewts_env):
-    logger1 = configure_logging()
-    logger2 = configure_logging()
 
-    assert logger1 is logger2
-    assert getattr(logger1, "_initialized", False)
+def test_get_log_dir_env_override(clean_ewts_env, monkeypatch, tmp_path):
+    monkeypatch.setenv("EWTS_LOG_DIR", str(tmp_path))
+    assert get_log_dir() == tmp_path
 
-# ------------------------------
-@pytest.mark.parametrize("inp,expected", [
-    ("INFO", "INFO"),
-    ("SeVeRe", "ERROR"),
-    ("fatal", "CRITICAL"),
-    (" debug ", "DEBUG"),
-])
-def test_translate_ngwpc_log_level(inp, expected):
-    assert translate_ngwpc_log_level(inp) == expected
 
-# ------------------------------
-@pytest.mark.parametrize("env_value,expected_enabled", [
-    (None, True),          # default: enabled
-    ("DISABLED", False),
-    ("ENABLED", True),
-    ("disabled", False),
-    ("enabled", True),
-    ("anystring", True),
-    ("", True),
-])
-@pytest.mark.parametrize("level_input,expected_level", [
-    ("DEBUG", logging.DEBUG),
-    ("INFO", logging.INFO),
-    ("SEVERE", logging.ERROR),
-    ("FATAL", logging.CRITICAL),
-])
-def test_ewts_logger_matrix(clean_ewts_env, monkeypatch, capsys, env_value, expected_enabled, level_input, expected_level):
-    # Set environment variables
-    if env_value is None:
-        monkeypatch.delenv("NGEN_EWTS_LOGGING", raising=False)
+def test_get_log_dir_default_is_home_run_logs(clean_ewts_env, monkeypatch, tmp_path):
+    # Patch Path.home() so we don't depend on the actual user home
+    monkeypatch.delenv("EWTS_LOG_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    assert get_log_dir() == tmp_path / "run_logs"
+
+
+@pytest.mark.parametrize(
+    "val,expected",
+    [
+        ("", LEVELS.get("INFO", 20)),
+        ("INFO", LEVELS["INFO"]),
+        (" debug ", LEVELS["DEBUG"]),
+        ("15", 15),
+        ("warn", LEVELS["WARNING"]),
+        ("critical", LEVELS["FATAL"]),
+        ("none", LEVELS["NOTSET"]),
+        ("SeVeRe", LEVELS["SEVERE"]),
+        ("bogus", LEVELS.get("INFO", 20)),
+    ],
+)
+def test_get_default_level_parsing(clean_ewts_env, monkeypatch, val, expected):
+    if val == "":
+        monkeypatch.delenv("EWTS_LOG_LEVEL", raising=False)
     else:
-        monkeypatch.setenv("NGEN_EWTS_LOGGING", env_value)
+        monkeypatch.setenv("EWTS_LOG_LEVEL", val)
+    assert get_default_level() == expected
 
-    monkeypatch.setenv("TROUTE_LOGLEVEL", level_input)
 
-    # Force logger re-initialization
-    logger = logging.getLogger(MODULE_NAME)
-    logger.handlers.clear()
-    logger._initialized = False
-    logger.disabled = False  # ensure proper reset
+def test_get_level_for_ewts_id_override(clean_ewts_env, monkeypatch):
+    monkeypatch.setenv("EWTS_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("TROUTE_LOGLEVEL", "FATAL")
+    assert get_level_for_ewts_id("TROUTE") == LEVELS["FATAL"]
 
-    # Configure logger
-    logger = configure_logging()
 
-    # Capture stdout
-    captured = capsys.readouterr()
-
-    # Assertions
-    assert logger.name == MODULE_NAME
-    assert (not logger.disabled) == expected_enabled  # True if enabled
-    if expected_enabled:
-        assert logger.level == expected_level
-
-    # Assertions for default-enabled print
-    if expected_enabled and (env_value is None or env_value not in ("ENABLED", "enabled")):
-        assert f"{EV_EWTS_LOGGING} not explicitly set" in captured.out
-    else:
-        assert f"{EV_EWTS_LOGGING} not explicitly set" not in captured.out
-
+def test_load_config_fields(clean_ewts_env, monkeypatch, tmp_path):
+    monkeypatch.setenv("EWTS_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("EWTS_LOG_LEVEL", "WARNING")
+    cfg = load_config("TROUTE")
+    assert cfg.ngen_active is False
+    assert cfg.log_dir == tmp_path
+    assert cfg.default_level == LEVELS["WARNING"]
