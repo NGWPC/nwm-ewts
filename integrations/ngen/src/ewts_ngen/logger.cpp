@@ -1,7 +1,6 @@
 #include "ewts_ngen/logger.hpp"
 
 #include <algorithm>
-#include <cassert>
 #include <chrono>
 #include <cctype>
 #include <cstdarg>
@@ -14,7 +13,6 @@
 #include <mutex>
 #include <sstream>
 #include <sys/stat.h>
-#include <sys/wait.h>
 
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS // intentionally want the old behavior
 #include <boost/property_tree/json_parser.hpp>
@@ -34,10 +32,10 @@
 
 namespace {
 
-static const char* const kEnvResultsDir   = "NGEN_RESULTS_DIR";
-static const char* const kConfigFilename  = "ngen_logging.json";
-static const char* const kEnvEwtsEnabled  = "EWTS_ENABLED";
-
+static const char* const kEnvResultsDir    = "NGEN_RESULTS_DIR";
+static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
+static const char* const kConfigFilename   = "ngen_logging.json";
+static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
 static const char* const kDefaultRunLogsDirName = "run_logs";
 
 inline bool IsDigitString(const std::string& s) {
@@ -49,12 +47,14 @@ inline bool IsDigitString(const std::string& s) {
 }
 
 inline std::string ToUpper(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return (unsigned char)std::toupper(c); });
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
     return s;
 }
 
 inline std::string ToLower(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return (unsigned char)std::tolower(c); });
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
     return s;
 }
 
@@ -71,16 +71,14 @@ inline LogLevel ClampCanonicalLevel(int v) {
 
 constexpr std::size_t EWTS_ID_WIDTH = 8;
 
-inline std::string PadEwtsId(const std::string& id)
-{
+inline std::string PadEwtsId(const std::string& id) {
     std::string s = ToUpper(id);
     if (s.size() >= EWTS_ID_WIDTH) return s.substr(0, EWTS_ID_WIDTH);
     s.append(EWTS_ID_WIDTH - s.size(), ' ');
     return s;
 }
 
-inline bool mpi_is_initialized()
-{
+inline bool mpi_is_initialized() {
     int flag = 0;
     MPI_Initialized(&flag);
     return flag != 0;
@@ -97,14 +95,12 @@ void Logger::InitIfNeeded() {
     static std::once_flag once;
     std::call_once(once, [this]() {
 
-        std::string  ngenResultsDir;
+        std::string ngenResultsDir;
 
         // Determine results dir
         const char* rd = std::getenv(kEnvResultsDir);
         if (rd && std::strlen(rd) > 0) {
             ngenResultsDir = std::string(rd);
-        } else {
-            ngenResultsDir.clear();
         }
 
         // Determine module EWTS id (for log message prefix)
@@ -127,6 +123,7 @@ void Logger::InitIfNeeded() {
         if (!ngenResultsDir.empty()) {
             loaded = ReadConfigFromResultsDir(ngenResultsDir);
         }
+
         if (!loaded) {
             // Defaults when no results dir
             loggingEnabled = true;
@@ -140,27 +137,19 @@ void Logger::InitIfNeeded() {
                 }
             }
 #endif
-            // Default module level for this module
             moduleLogLevels[moduleKey] = LogLevel::INFO;
             logLevel = LogLevel::INFO;
         }
+
         ApplyEnvVars(true);
 
         // Determine MPI rank (optional)
         if (mpi_is_initialized()) {
             std::cout << "EWTS ngen running with MPI" << std::endl;
-            int initialized_mpi = 0;
-            MPI_Initialized(&initialized_mpi);
-            if (initialized_mpi) {
-                int r = 0;
-                MPI_Comm_rank(MPI_COMM_WORLD, &r);
-                g_mpiRank = r;
-            } else {
-                // If MPI isn't initialized, treat as rank 0.
-                g_mpiRank = 0;
-            }
-        }
-        else {
+            int r = 0;
+            MPI_Comm_rank(MPI_COMM_WORLD, &r);
+            g_mpiRank = r;
+        } else {
             std::cout << "EWTS ngen running WITHOUT MPI" << std::endl;
             g_mpiRank = 0;
         }
@@ -173,14 +162,12 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     // Defaults
     loggingEnabled = true;
     splitLogsByModule = false;
-
-    // Ensure we at least set this module's default level.
     moduleLogLevels[moduleKey] = LogLevel::INFO;
 
     const std::string cfg = JoinPath(resultsDir, kConfigFilename);
     if (!FileExists(cfg)) {
         std::cout << "WARNING: EWTS config file " << cfg << " NOT FOUND. Defaults will be used" << std::endl;
-        // No config file: keep defaults, but still export environment variables.
+        // No config file: keep defaults, but still export log level environment variables.
         logLevel = moduleLogLevels[moduleKey];
         return false;
     }
@@ -213,15 +200,18 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     // split_logs_by_module (optional)
     auto opt_split = pt.get_optional<bool>("split_logs_by_module");
     if (opt_split) splitLogsByModule = *opt_split;
-    std::cout << "EWTS logging to " << ((splitLogsByModule)? "<MODULE>":"a UNIFIED ngen") << " per rank file" << std::endl;
+    std::cout << "EWTS logging to "
+              << (splitLogsByModule ? "<MODULE>" : "a UNIFIED ngen")
+              << " per rank file" << std::endl;
 
-    // modules map (optional): stable_key -> level ("info"/"debug"/"20"/etc)
+    // split_logs_by_module (optional)
     auto modules_child = pt.get_child_optional("modules");
     if (modules_child) {
         for (const auto& kv : *modules_child) {
             const std::string key = TrimString(kv.first);
             const std::string raw = TrimString(kv.second.get_value<std::string>());
-            std::cout << "EWTS " << key << " log level read be ngen " << ToUpper(raw) << std::endl;
+            std::cout << "EWTS " << key << " log level read by ngen "
+                      << ToUpper(raw) << std::endl;
 
             LogLevel lvl = LogLevel::INFO;
             if (IsDigitString(raw)) {
@@ -236,7 +226,6 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     // This module's effective level
     auto it = moduleLogLevels.find(moduleKey);
     logLevel = (it != moduleLogLevels.end()) ? it->second : LogLevel::INFO;
-
     return true;
 }
 
@@ -260,14 +249,26 @@ void Logger::ApplyEnvVars(bool set) {
 
         const std::string env_name = ident + "_LOGLEVEL";
         const std::string env_val  = std::to_string(static_cast<int>(lvl));
-#if defined(_WIN32)
-        (void)env_name; (void)env_val;
-#else
+#if !defined(_WIN32)
         ::setenv(env_name.c_str(), env_val.c_str(), 1);
 #endif
-        std::cout << "EWTS " << env_name << " set to " << LevelToFixedString(lvl) << std::endl;
-
+        std::cout << "EWTS " << env_name << " set to "
+                  << LevelToFixedString(lvl) << std::endl;
     }
+}
+
+std::string Logger::GetStandaloneBaseDir() {
+    const char* ewts_log_dir = std::getenv(kEnvEwtsLogDir);
+    if (ewts_log_dir && std::strlen(ewts_log_dir) > 0) {
+        return std::string(ewts_log_dir);
+    }
+
+    const std::string home = GetHomeDir();
+    if (!home.empty() && home != ".") {
+        return JoinPath(home, kDefaultRunLogsDirName);
+    }
+
+    return JoinPath(".", kDefaultRunLogsDirName);
 }
 
 void Logger::SetupLogFile(const std::string& resultsDir) {
@@ -275,33 +276,26 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     if (!resultsDir.empty()) {
         logFileDir = JoinPath(resultsDir, "logs");
     } else {
-        logFileDir = JoinPath(GetHomeDir(), kDefaultRunLogsDirName);
+        logFileDir = GetStandaloneBaseDir();
     }
 
     // Determine file name
     std::string stem = splitLogsByModule ? moduleKey : "ngen";
 
-    // Optional rank suffix
     std::string rank_part;
     if (mpi_is_initialized()) {
         rank_part = "_rank_" + std::to_string(GetRank());
-    }
-    else {
-        rank_part.clear();
     }
 
     // Optional timestamp suffix (only when no results dir)
     std::string ts_part;
     if (resultsDir.empty()) {
         ts_part = "_" + CreateCompactTimestampUTC();
-    } else {
-        ts_part.clear();
     }
 
     const std::string filename = stem + rank_part + ts_part + ".log";
     logFilePath = JoinPath(logFileDir, filename);
 
-    // Create directory
     (void)CreateDirectory(logFileDir);
 
     // Open file (append)
@@ -323,6 +317,7 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const cha
     if (!message) return;
 
     Logger* logger = GetLogger();
+    logger->InitIfNeeded();
     if (!logger->loggingEnabled) return;
     if (static_cast<int>(messageLevel) < static_cast<int>(logger->logLevel)) return;
 
@@ -332,15 +327,14 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const cha
     va_list args2;
     va_copy(args2, args1);
 
-    int needed = std::vsnprintf(nullptr, 0, message, args1);
+    const int needed = std::vsnprintf(nullptr, 0, message, args1);
     va_end(args1);
     if (needed < 0) {
         va_end(args2);
         return;
     }
 
-    std::string buf;
-    buf.resize(static_cast<size_t>(needed) + 1);
+    std::string buf(static_cast<std::size_t>(needed) + 1U, '\0');
     std::vsnprintf(&buf[0], buf.size(), message, args2);
     va_end(args2);
 
@@ -354,6 +348,7 @@ void Logger::Log(LogLevel messageLevel, const char* message, ...) {
     if (!message) return;
 
     Logger* logger = GetLogger();
+    logger->InitIfNeeded();
     if (!logger->loggingEnabled) return;
     if (static_cast<int>(messageLevel) < static_cast<int>(logger->logLevel)) return;
 
@@ -363,15 +358,14 @@ void Logger::Log(LogLevel messageLevel, const char* message, ...) {
     va_list args2;
     va_copy(args2, args1);
 
-    int needed = std::vsnprintf(nullptr, 0, message, args1);
+    const int needed = std::vsnprintf(nullptr, 0, message, args1);
     va_end(args1);
     if (needed < 0) {
         va_end(args2);
         return;
     }
 
-    std::string buf;
-    buf.resize(static_cast<size_t>(needed) + 1);
+    std::string buf(static_cast<std::size_t>(needed) + 1U, '\0');
     std::vsnprintf(&buf[0], buf.size(), message, args2);
     va_end(args2);
 
@@ -391,7 +385,8 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
     const std::string level_str = LevelToFixedString(messageLevel);
 
     // Prefix: <ISO timestamp> <EWTS_ID padded> <LEVEL padded>
-    const std::string prefix = CreateTimestamp(true, true) + " " + PadEwtsId(moduleName) + " " + level_str;
+    const std::string prefix = CreateTimestamp(true, true) + " " +
+                               PadEwtsId(moduleName) + " " + level_str;
 
     std::istringstream in(message);
     std::string line;
@@ -429,7 +424,7 @@ std::string Logger::LevelToFixedString(LogLevel level) {
         default:                name = "INFO"; break;
     }
 #endif
-    // pad/truncate to 7 chars like legacy format
+    // pad/truncate to 7 chars
     std::string out = name;
     if (out.size() < 7) out.append(7 - out.size(), ' ');
     if (out.size() > 7) out = out.substr(0, 7);
@@ -438,9 +433,9 @@ std::string Logger::LevelToFixedString(LogLevel level) {
 
 LogLevel Logger::ParseLevel(const std::string& value) {
     std::string v = ToLower(TrimString(value));
-    if (v == "debug")   return LogLevel::DEBUG;
+    if (v == "debug") return LogLevel::DEBUG;
     if (v == "performance" || v == "perform") return LogLevel::PERFORM;
-    if (v == "info")    return LogLevel::INFO;
+    if (v == "info") return LogLevel::INFO;
     if (v == "warning" || v == "warn") return LogLevel::WARNING;
     if (v == "error" || v == "severe") return LogLevel::SEVERE;
     if (v == "fatal" || v == "critical") return LogLevel::FATAL;
@@ -538,8 +533,8 @@ std::string Logger::JoinPath(const std::string& a, const std::string& b) {
     return a + "/" + b;
 }
 
-std::string Logger::EnvVarIdentFromModuleKey(const std::string& key)
-{
+std::string Logger::EnvVarIdentFromModuleKey(const std::string& key) {
+#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
     if (key.empty()) return "";
 
     // First try exact match
@@ -555,6 +550,6 @@ std::string Logger::EnvVarIdentFromModuleKey(const std::string& key)
     if (const char* id = ewts::EwtsIdFromKey(lower.c_str())) {
         return std::string(id);
     }
-
+#endif
     return "";
 }

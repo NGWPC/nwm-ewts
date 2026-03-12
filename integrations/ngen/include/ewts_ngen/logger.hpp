@@ -11,10 +11,11 @@
 /*
  * NGEN integration logger.
  *
- * - Owns all logging policy (config/env/file/format) in Logger.cpp
+ * - Owns all logging policy (config/env/file/format) in logger.cpp
  * - Reads <NGEN_RESULTS_DIR>/ngen_logging.json when NGEN_RESULTS_DIR is set
  * - Exports EWTS_ENABLED and <MODULE>_LOGLEVEL environment variables
- * - Supports optional MPI rank suffix (compile with -DNGEN_WITH_MPI)
+ * - Supports optional MPI rank suffix
+ * - Falls back to EWTS_LOG_DIR for standalone logging when NGEN_RESULTS_DIR is unavailable
  */
 
 enum class LogLevel : int {
@@ -36,7 +37,7 @@ class Logger {
     static void Log(LogLevel messageLevel, const std::string& message);
     static void Log(LogLevel messageLevel, const char* message, ...);
 
-    // New ewtsID-aware overloads
+    // ewtsID-aware overloads
     static void Log(const std::string& moduleName, LogLevel messageLevel, const std::string& message);
     static void Log(const std::string& moduleName, LogLevel messageLevel, const char* message, ...);
 
@@ -77,6 +78,7 @@ class Logger {
     static std::string GetHomeDir();
     static std::string JoinPath(const std::string& a, const std::string& b);
     static std::string EnvVarIdentFromModuleKey(const std::string& key);
+    static std::string GetStandaloneBaseDir();
 
     int GetRank() const { return g_mpiRank; }
 
