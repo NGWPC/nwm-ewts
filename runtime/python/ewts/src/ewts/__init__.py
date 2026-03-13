@@ -5,6 +5,7 @@ Public API:
   - EwtsLogger methods: debug/info/warning/error/severe/fatal/perform/log
 """
 # This unused-looking import is deliberate — it’s part of the public API.
+from ._version import __version__  # noqa: F401
 from .logger import get_logger, EwtsLogger  # noqa: F401
 from . import modules as _modules
 
@@ -14,9 +15,9 @@ for _name in dir(_modules):
         globals()[_name] = getattr(_modules, _name)
 
 __all__ = (
-    ["get_logger", "EwtsLogger",]
+    ["__version__", "get_logger", "EwtsLogger",]
     + [
-        _name 
+        _name
         for _name in dir(_modules)
         if _name.endswith("_ID") and _name.isupper()
     ]
