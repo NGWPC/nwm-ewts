@@ -41,6 +41,7 @@ DEFAULT_LEVEL_NAME = "INFO"
 class Module:
     key: str
     ewts_id: str
+    language: str
     description: str = ""
 
 
@@ -179,18 +180,30 @@ def _load_registry(registry_path: Path) -> List[Module]:
             raise SystemExit(f"Registry entry #{i} must be a mapping.")
         key = str(raw.get("key", "")).strip()
         ewts_id = str(raw.get("ewts_id", "")).strip()
+        language = str(raw.get("language", "")).strip().lower()
         desc = str(raw.get("description", "")).strip()
 
         if not key:
             raise SystemExit(f"Registry entry #{i} has an empty 'key'.")
         if not ewts_id:
             raise SystemExit(f"Registry entry #{i} has an empty 'ewts_id'.")
+        if not language:
+            raise SystemExit(f"Registry entry #{i} has an empty 'language'.")
+        if language not in {"c", "cpp", "fortran", "python"}:
+            raise SystemExit(
+                f"Registry entry #{i} has unsupported language '{language}'. "
+                "Expected one of: c, cpp, fortran, python."
+            )
         if len(ewts_id) > EWTS_ID_WIDTH:
             raise SystemExit(f"Registry entry #{i} ewts_id '{ewts_id}' exceeds {EWTS_ID_WIDTH} chars.")
         if ewts_id.upper() != ewts_id:
             raise SystemExit(f"Registry entry #{i} ewts_id '{ewts_id}' must be uppercase.")
-        modules.append(Module(key=key, ewts_id=ewts_id, description=desc))
+        modules.append(Module(key=key, ewts_id=ewts_id, language=language, description=desc))
     return modules
+
+
+def _modules_for_language(modules: List[Module], language: str) -> List[Module]:
+    return [m for m in modules if m.language == language]
 
 
 def _registry_meta(repo_root: Path, registry_path: Path) -> dict:
@@ -327,6 +340,123 @@ def _generate_cpp_module_constants(modules: List[Module], out_hpp: Path, *, regi
         "#endif  // EWTS_MODULE_CONSTANTS_HPP\n",
     ])
     _write_text(out_hpp, "\n".join(lines))
+
+
+def _generate_ngen_module_constants(modules: List[Module], out_hpp: Path, *, registry_meta: dict) -> None:
+    """Generate aggregate C++ constants for the ngen integration without affecting runtime headers."""
+    lines = [
+        _c_block_banner("C++", generated_utc=GEN_UTC, registry_meta=registry_meta),
+        "#ifndef EWTS_NGEN_MODULE_CONSTANTS_HPP",
+        "#define EWTS_NGEN_MODULE_CONSTANTS_HPP",
+        "",
+        "namespace ewts_ngen {",
+        "namespace modules {",
+        "",
+    ]
+    for m in modules:
+        ident = _ident_from_key(m.key)
+        lines.append(f'inline constexpr const char* EWTS_KEY_{ident} = "{m.key}";')
+        lines.append(f'inline constexpr const char* EWTS_ID_{ident}  = "{m.ewts_id}";')
+        lines.append("")
+    lines.extend([
+        "}  // namespace modules",
+        "}  // namespace ewts_ngen",
+        "",
+        "#endif  // EWTS_NGEN_MODULE_CONSTANTS_HPP\n",
+    ])
+    _write_text(out_hpp, "\n".join(lines))
+
+
+
+
+def _generate_ngen_module_keys(modules: List[Module], out_hpp: Path, *, registry_meta: dict) -> None:
+    """Generate aggregate C++ module key helpers for the ngen integration without affecting runtime headers."""
+    entries = []
+    for m in modules:
+        desc = m.description.replace("\\", "\\\\").replace('"', '\\"')
+        entries.append(f'    {{"{m.key}", "{m.ewts_id}", "{desc}"}}')
+    entries_block = ",\n".join(entries)
+
+    content = _c_block_banner(
+        "C++",
+        generated_utc=GEN_UTC,
+        registry_meta=registry_meta,
+    ) + textwrap.dedent(f"""\
+        #ifndef EWTS_NGEN_MODULE_KEYS_HPP
+        #define EWTS_NGEN_MODULE_KEYS_HPP
+
+        #include <cstddef>
+        #include <cstring>
+        #include <vector>
+
+        namespace ewts_ngen {{
+        struct ModuleEntry {{
+            const char* key;
+            const char* ewts_id;
+            const char* description;
+        }};
+
+        static const ModuleEntry kModules[] = {{
+{entries_block}
+        }};
+
+        static const std::size_t kModulesCount = sizeof(kModules) / sizeof(kModules[0]);
+
+        inline const char* EwtsIdFromKey(const char* key) {{
+            if (!key) return nullptr;
+            for (std::size_t i = 0; i < kModulesCount; ++i) {{
+                if (std::strcmp(kModules[i].key, key) == 0) return kModules[i].ewts_id;
+            }}
+            return nullptr;
+        }}
+
+        inline const char* DescriptionFromKey(const char* key) {{
+            if (!key) return nullptr;
+            for (std::size_t i = 0; i < kModulesCount; ++i) {{
+                if (std::strcmp(kModules[i].key, key) == 0) return kModules[i].description;
+            }}
+            return nullptr;
+        }}
+
+        inline std::vector<const char*> KeysFromEwtsId(const char* ewts_id) {{
+            std::vector<const char*> out;
+            if (!ewts_id) return out;
+            for (std::size_t i = 0; i < kModulesCount; ++i) {{
+                if (std::strcmp(kModules[i].ewts_id, ewts_id) == 0) out.push_back(kModules[i].key);
+            }}
+            return out;
+        }}
+
+        inline std::vector<const char*> DescriptionsFromEwtsId(const char* ewts_id) {{
+            std::vector<const char*> out;
+            if (!ewts_id) return out;
+            for (std::size_t i = 0; i < kModulesCount; ++i) {{
+                if (std::strcmp(kModules[i].ewts_id, ewts_id) == 0) out.push_back(kModules[i].description);
+            }}
+            return out;
+        }}
+
+        inline const char* FirstKeyFromEwtsId(const char* ewts_id) {{
+            if (!ewts_id) return nullptr;
+            for (std::size_t i = 0; i < kModulesCount; ++i) {{
+                if (std::strcmp(kModules[i].ewts_id, ewts_id) == 0) return kModules[i].key;
+            }}
+            return nullptr;
+        }}
+
+        inline const char* FirstDescriptionFromEwtsId(const char* ewts_id) {{
+            if (!ewts_id) return nullptr;
+            for (std::size_t i = 0; i < kModulesCount; ++i) {{
+                if (std::strcmp(kModules[i].ewts_id, ewts_id) == 0) return kModules[i].description;
+            }}
+            return nullptr;
+        }}
+
+        }}  // namespace ewts_ngen
+
+        #endif  // EWTS_NGEN_MODULE_KEYS_HPP
+    """)
+    _write_text(out_hpp, content)
 
 
 def _generate_fortran_module_constants(modules: List[Module], out_f90: Path, *, registry_meta: dict) -> None:
@@ -918,6 +1048,11 @@ def main() -> int:
     modules = _load_registry(registry_path)
     _validate_registry(modules)
 
+    c_modules = _modules_for_language(modules, "c")
+    cpp_modules = _modules_for_language(modules, "cpp")
+    fortran_modules = _modules_for_language(modules, "fortran")
+    python_modules = _modules_for_language(modules, "python")
+
     print("Using input specifications:")
     print(f"  - Module registry: {rmeta['spec_path']} (version: {rmeta['spec_version']})")
     print(f"  - Log levels spec: {lmeta['spec_path']} (version: {lmeta['spec_version']})")
@@ -941,24 +1076,28 @@ def main() -> int:
     cpp_const_hpp = repo_root / "runtime" / "cpp" / "include" / "ewts" / "module_constants.hpp"
     f_const_f90 = repo_root / "runtime" / "fortran" / "src" / "ewts" / "module_constants.f90"
     py_const_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "modules.py"
+    ngen_const_hpp = repo_root / "integrations" / "ngen" / "include" / "ewts_ngen" / "ngen_module_constants.hpp"
+    ngen_keys_hpp = repo_root / "integrations" / "ngen" / "include" / "ewts_ngen" / "ngen_module_keys.hpp"
 
     py_lvl_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "log_levels.py"
 
-    _generate_c_module_keys(modules, c_mod_h, repo_root=repo_root, registry_meta=rmeta)
+    _generate_c_module_keys(c_modules, c_mod_h, repo_root=repo_root, registry_meta=rmeta)
     _generate_c_log_levels(c_lvl_h, levels_meta=lmeta)
 
-    _generate_cpp_module_keys(modules, cpp_mod_hpp, registry_meta=rmeta)
+    _generate_cpp_module_keys(cpp_modules, cpp_mod_hpp, registry_meta=rmeta)
     _generate_cpp_log_levels(cpp_lvl_hpp, levels_meta=lmeta)
 
-    _generate_fortran_module_keys(modules, f_mod_f90, registry_meta=rmeta)
+    _generate_fortran_module_keys(fortran_modules, f_mod_f90, registry_meta=rmeta)
     _generate_fortran_log_levels(f_lvl_f90, levels_meta=lmeta)
 
-    _generate_python_module_keys(modules, py_mod_py, registry_meta=rmeta)
+    _generate_python_module_keys(python_modules, py_mod_py, registry_meta=rmeta)
     _generate_python_log_levels(py_lvl_py, levels_meta=lmeta)
-    _generate_c_module_constants(modules, c_const_h, repo_root=repo_root, registry_meta=rmeta)
-    _generate_cpp_module_constants(modules, cpp_const_hpp, registry_meta=rmeta)
-    _generate_fortran_module_constants(modules, f_const_f90, registry_meta=rmeta)
-    _generate_python_module_constants(modules, py_const_py, registry_meta=rmeta)
+    _generate_c_module_constants(c_modules, c_const_h, repo_root=repo_root, registry_meta=rmeta)
+    _generate_cpp_module_constants(cpp_modules, cpp_const_hpp, registry_meta=rmeta)
+    _generate_fortran_module_constants(fortran_modules, f_const_f90, registry_meta=rmeta)
+    _generate_python_module_constants(python_modules, py_const_py, registry_meta=rmeta)
+    _generate_ngen_module_constants(modules, ngen_const_hpp, registry_meta=rmeta)
+    _generate_ngen_module_keys(modules, ngen_keys_hpp, registry_meta=rmeta)
 
 
     print("Wrote per-language constants for modules + log levels.\n")

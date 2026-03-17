@@ -1,7 +1,52 @@
+# `generate_language_constants.py`
 
-# EWTS Language Constants Generator
+## Table of Contents
+
+- [Overview](#generate_language_constantspy)
+- [What the Script Generates](#what-the-script-generates)
+  - [Runtime Outputs](#runtime-outputs)
+    - [C](#c)
+    - [C++ (runtime)](#c-runtime)
+    - [Fortran](#fortran)
+    - [Python](#python)
+  - [ngen-specific Outputs](#ngen-specific-outputs)
+- [Input Files](#input-files)
+  - [Module Registry YAML](#1-module-registry-yaml)
+    - [Registry Rules](#registry-rules)
+  - [Log Levels JSON](#2-log-levels-json)
+- [Repository Layout Assumptions](#repository-layout-assumptions)
+- [Requirements](#requirements)
+- [How to Run](#how-to-run)
+  - [Default Usage](#default-usage)
+  - [Specify Explicit Input Paths](#specify-explicit-input-paths)
+  - [Specify Repo Root Explicitly](#specify-repo-root-explicitly)
+- [How Filtering Works](#how-filtering-works)
+  - [C Modules](#c-modules)
+  - [C++ Modules](#c-modules-runtime)
+  - [Fortran Modules](#fortran-modules)
+  - [Python Modules](#python-modules)
+  - [ngen Outputs](#ngen-outputs)
+- [Expected Generated Content Examples](#expected-generated-content-examples)
+  - [Example: C++ Runtime Constants](#example-c-runtime-constants)
+  - [Example: Python Runtime Constants](#example-python-runtime-constants)
+  - [Example: ngen Aggregate Constants](#example-ngen-aggregate-constants)
+  - [Example: ngen Aggregate Module Key Helpers](#example-ngen-aggregate-module-key-helpers)
+- [Typical Usage in ngen Code](#typical-usage-in-ngen-code)
+- [Typical Usage in Runtime Code](#typical-usage-in-runtime-code)
+- [Script Behavior Summary](#script-behavior-summary)
+- [Notes](#notes)
+
+
+
+This script generates EWTS module key, module constant, and log-level files for the supported runtime languages, plus aggregate ngen-specific headers for the `integrations/ngen` code.
 
 This tool generates **language-specific constants and lookup tables** used by the EWTS runtimes for C, C++, Fortran, and Python.
+
+It reads:
+- a module registry YAML file
+- a log levels JSON file
+
+and writes generated files into the repository under `runtime/...` and `integrations/ngen/...`.
 
 The generator ensures that:
 
@@ -9,186 +54,297 @@ The generator ensures that:
 - Log levels remain **synchronized across runtimes**
 - The EWTS system has a **single source of truth** for module metadata
 
-The generator script is:
+## What the script generates
 
+### Runtime outputs
+The script filters runtime module outputs by the `language` field in `module_registry.yaml`.
+
+That means:
+- C runtime files get only modules where `language: c`
+- C++ runtime files get only modules where `language: cpp`
+- Fortran runtime files get only modules where `language: fortran`
+- Python runtime files get only modules where `language: python`
+
+Generated runtime files include:
+
+### C
+- `runtime/c/include/ewts/module_keys.h`
+- `runtime/c/src/ewts/module_keys.c`
+- `runtime/c/include/ewts/module_constants.h`
+- `runtime/c/include/ewts/log_levels.h`
+
+### C++
+- `runtime/cpp/include/ewts/module_keys.hpp`
+- `runtime/cpp/include/ewts/module_constants.hpp`
+- `runtime/cpp/include/ewts/log_levels.hpp`
+
+### Fortran
+- `runtime/fortran/src/ewts/module_keys.f90`
+- `runtime/fortran/src/ewts/module_constants.f90`
+- `runtime/fortran/src/ewts/log_levels.f90`
+
+### Python
+- `runtime/python/ewts/src/ewts/module_keys.py`
+- `runtime/python/ewts/src/ewts/modules.py`
+- `runtime/python/ewts/src/ewts/log_levels.py`
+
+## ngen-specific outputs
+In addition to the runtime outputs, the script generates aggregate ngen headers containing **all** modules from the registry, regardless of language. This allows the ngen integration code to avoid depending on the runtime C++ headers.
+
+Generated ngen files:
+- `integrations/ngen/include/ewts_ngen/ngen_module_constants.hpp`
+- `integrations/ngen/include/ewts_ngen/ngen_module_keys.hpp`
+
+These are intended for use only by `integrations/ngen` code.
+
+## Input files
+
+## 1. Module registry YAML
+The module registry must be a YAML mapping with a top-level `modules` list. Each module entry must define:
+- `key`
+- `ewts_id`
+- `language`
+- optionally `description`
+
+Example from the attached registry:
+
+```yaml
+version: 1
+modules:
+  - key: ngen
+    ewts_id: NGEN
+    language: cpp
+    description: "ngen framework"
+  - key: cfe-s
+    ewts_id: CFE
+    language: c
+    description: "Conceptual Functional Equivalent to the National Water Model (Schaake)"
+  - key: forcing
+    ewts_id: FORCING
+    language: python
+    description: "Forcing Engine"
 ```
+
+### Registry rules
+The script enforces the following:
+- `modules` must exist and be a list
+- `key` must be non-empty
+- `ewts_id` must be non-empty
+- `language` must be one of:
+  - `c`
+  - `cpp`
+  - `fortran`
+  - `python`
+- `ewts_id` must be uppercase
+- `ewts_id` must be at most 8 characters long
+- module `key` values must be unique
+- duplicate `ewts_id` values are allowed
+
+Duplicate `ewts_id` values are useful for aliases. For example, the attached registry maps `cfe-s`, `cfe-x`, and `cfe` to the same `ewts_id: CFE`.
+
+## 2. Log levels JSON
+The log levels file must be a JSON object with a non-empty `levels` mapping:
+
+```json
+{
+  "version": 1,
+  "levels": {
+    "NOTSET": 0,
+    "DEBUG": 10,
+    "PERFORM": 15,
+    "INFO": 20,
+    "WARNING": 30,
+    "SEVERE": 40,
+    "FATAL": 50
+  }
+}
+```
+
+The script uses this file to generate log-level helpers for C, C++, Fortran, and Python.
+
+## Repository layout assumptions
+By default, the script assumes it lives at:
+
+```text
 tools/generate_language_constants.py
 ```
 
-The generator reads two specification files:
+and infers the repository root as the parent of the `tools` directory.
 
-- Module registry: `spec/module_registry.yaml`
-- Log levels: `spec/log_levels.json`
+It also assumes default spec paths relative to the repository root:
+- `spec/module_registry.yaml`
+- `spec/log_levels.json`
 
-These specifications define all module identifiers and log level definitions used by the EWTS system.
+## Requirements
+- Python 3
+- `PyYAML`
 
-Example module registry entry:
+Install dependency:
 
-```yaml
-- key: smp
-  ewts_id: SMP
-  description: "Soil Moisture Profiles Model"
+```bash
+pip install pyyaml
 ```
 
-Example log level entry:
+If `PyYAML` is missing, the script exits with an error message.
 
-```json
-"INFO": 20
-```
+## How to run
 
-The generator reads these definitions and produces language‑specific constants for:
-
-- C
-- C++
-- Fortran
-- Python
-
----
-
-# Why this tool exists
-
-Hydrologic workflows in **ngen** execute multiple modules within the same process.
-To ensure logging remains consistent across languages and modules, EWTS uses a **central specification** for module IDs and log levels.
-
-Instead of duplicating these definitions manually in every language runtime, this generator:
-
-- reads the canonical specification
-- produces language‑specific source files
-- guarantees the runtimes stay synchronized
-
----
-
-# Inputs
-
-## Module Registry
-
-Defined in:
-
-```
-spec/module_registry.yaml
-```
-
-This file defines:
-
-- module key
-- EWTS module ID
-- description
-
-Example entries include modules such as:
-
-- ngen
-- smp
-- sft
-- t-route
-- noah-owp-modular
-
-These map module keys to EWTS module identifiers used in logging. fileciteturn21file2
-
----
-
-## Log Level Specification
-
-Defined in:
-
-```
-spec/log_levels.json
-```
-
-This file defines the canonical EWTS log levels:
-
-- NOTSET
-- DEBUG
-- PERFORM
-- INFO
-- WARNING
-- SEVERE
-- FATAL
-
-Each level maps to an integer value used across all runtimes. fileciteturn21file3
-
----
-
-# Running the Generator
-
-From the repository root:
+### Default usage
+Run from anywhere:
 
 ```bash
 python tools/generate_language_constants.py
 ```
 
-The script automatically detects the repository root and reads the specification files.
+This uses:
+- `spec/module_registry.yaml`
+- `spec/log_levels.json`
+- inferred repo root
 
-Optional arguments allow overriding paths:
+### Specify explicit input paths
 
 ```bash
-python tools/generate_language_constants.py     --registry spec/module_registry.yaml     --log-levels spec/log_levels.json
+python tools/generate_language_constants.py \
+  --registry spec/module_registry.yaml \
+  --log-levels spec/log_levels.json
 ```
 
-The generator prints all files it produces during execution.
+### Specify repo root explicitly
 
----
-
-# Generated Files
-
-The generator creates the following files:
-
-## C Runtime
-
-```
-runtime/c/include/ewts/module_keys.h
-runtime/c/include/ewts/log_levels.h
-runtime/c/include/ewts/module_constants.h
-runtime/c/src/ewts/module_keys.c
+```bash
+python tools/generate_language_constants.py \
+  --repo-root /path/to/repo \
+  --registry spec/module_registry.yaml \
+  --log-levels spec/log_levels.json
 ```
 
-## C++ Runtime
+Supported command-line arguments are defined in the script's `argparse` setup. 
+S
+## How filtering works
+Given the attached `module_registry.yaml`, the runtime outputs are filtered like this:
 
+### C modules
+These entries go into the C runtime outputs:
+- `cfe-s`
+- `cfe-x`
+- `cfe`
+- `pet`
+- `topmodel` SW
+
+### C++ modules
+These entries go into the C++ runtime outputs:
+- `ngen`
+- `lasam`
+- `sft`
+- `smp`
+- `ueb` 
+
+### Fortran modules
+These entries go into the Fortran runtime outputs:
+- `noah-owp-modular`
+- `sac-sma`
+- `snow-17`
+
+### Python modules
+These entries go into the Python runtime outputs:
+- `forcing`
+- `lstm`
+- `topoflow-glacier`
+- `t-route`
+
+### ngen outputs
+The ngen headers include **all** modules from the registry, across all languages. The script generates those through separate ngen-specific functions and writes them to `integrations/ngen/include/ewts_ngen`. 
+
+## Expected generated content examples
+
+## Example: C++ runtime constants
+For a C++ module such as `ueb`, the generated runtime C++ constants header will contain entries like:
+
+```cpp
+inline constexpr const char* EWTS_KEY_UEB = "ueb";
+inline constexpr const char* EWTS_ID_UEB  = "UEB_BMI";
 ```
-runtime/cpp/include/ewts/module_keys.hpp
-runtime/cpp/include/ewts/log_levels.hpp
-runtime/cpp/include/ewts/module_constants.hpp
+
+This comes from the `ueb` registry entry.
+
+## Example: Python runtime constants
+For a Python module such as `t-route`, the generated Python constants file will contain entries like:
+
+```python
+T_ROUTE_KEY = "t-route"
+T_ROUTE_ID = "TROUTE"
 ```
 
-## Fortran Runtime
+This comes from the `t-route` registry entry.
 
-```
-runtime/fortran/src/ewts/module_keys.f90
-runtime/fortran/src/ewts/log_levels.f90
-runtime/fortran/src/ewts/module_constants.f90
-```
+## Example: ngen aggregate constants
+The ngen constants header will include all modules, such as both `t-route` and `ueb`, even though those belong to different runtime languages:
 
-## Python Runtime
+```cpp
+namespace ewts_ngen {
+namespace modules {
+inline constexpr const char* EWTS_KEY_T_ROUTE = "t-route";
+inline constexpr const char* EWTS_ID_T_ROUTE  = "TROUTE";
 
-```
-runtime/python/ewts/src/ewts/module_keys.py
-runtime/python/ewts/src/ewts/log_levels.py
-runtime/python/ewts/src/ewts/modules.py
-```
-
----
-
-# Important Notes
-
-The generated files include a header like:
-
-```
-AUTO-GENERATED FILE. DO NOT EDIT.
+inline constexpr const char* EWTS_KEY_UEB = "ueb";
+inline constexpr const char* EWTS_ID_UEB  = "UEB_BMI";
+}
+}
 ```
 
-These files should **never be modified manually**.
+The script generates this separately from the runtime C++ constants so ngen does not need to include the runtime header. 
 
-If module IDs or log levels need to change:
+## Example: ngen aggregate module key helpers
+The ngen key helper header includes lookup helpers such as:
+- `EwtsIdFromKey`
+- `DescriptionFromKey`
+- `KeysFromEwtsId`
+- `DescriptionsFromEwtsId`
+- `FirstKeyFromEwtsId`
+- `FirstDescriptionFromEwtsId` 
 
-1. Update the specification file
-2. Re-run the generator
+These are scoped under `namespace ewts_ngen`.
 
----
+## Typical usage in ngen code
 
-# Design Benefits
+### Include the ngen-specific headers
 
-This approach provides:
+```cpp
+#include "ewts_ngen/ngen_module_constants.hpp"
+#include "ewts_ngen/ngen_module_keys.hpp"
+```
 
-- **Single source of truth** for module identifiers
-- **Cross-language consistency**
-- **Elimination of manual duplication**
-- **Automatic regeneration when specs change**
+### Use constants
+
+```cpp
+const char* module_key = ewts_ngen::modules::EWTS_KEY_T_ROUTE;
+const char* module_id  = ewts_ngen::modules::EWTS_ID_T_ROUTE;
+```
+
+### Use lookup helpers
+
+```cpp
+const char* ewts_id = ewts_ngen::EwtsIdFromKey("cfe-s");
+const char* desc = ewts_ngen::DescriptionFromKey("cfe-s");
+```
+
+## Typical usage in runtime code
+Existing runtime code can continue to include the runtime-specific generated files, for example:
+
+```cpp
+#include "ewts/module_constants.hpp"
+#include "ewts/module_keys.hpp"
+```
+
+and those files will contain only the modules for the runtime language being generated.
+
+## Script behavior summary
+- Runtime outputs are language-filtered.
+- ngen outputs are aggregate across all languages.
+- Runtime and ngen headers are separate so you can change only `integrations/ngen` include usage without touching existing runtime module includes.
+- Log levels are generated from `log_levels.json` and are not filtered by module language. 
+
+## Notes
+- The script prints the input spec paths, versions, generation timestamp, and a list of generated files when it runs. 
+- Generated files include provenance banners showing when they were generated and which spec files were used. 
+- The repository version field in the module registry is optional, but helpful for traceability. 

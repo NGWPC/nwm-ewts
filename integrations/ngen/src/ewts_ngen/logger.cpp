@@ -18,17 +18,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-// Prefer generated per-language constants if available.
-#if defined(__has_include)
-#if __has_include("ewts/module_keys.hpp")
-#include "ewts/module_keys.hpp"
-#define EWTS_HAVE_MODULE_KEYS_HPP 1
-#endif
-#if __has_include("ewts/log_levels.hpp")
+#include "ewts_ngen/ngen_module_keys.hpp"
 #include "ewts/log_levels.hpp"
-#define EWTS_HAVE_LOG_LEVELS_HPP 1
-#endif
-#endif
 
 namespace {
 
@@ -104,19 +95,11 @@ void Logger::InitIfNeeded() {
         }
 
         // Determine module EWTS id (for log message prefix)
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
-        {
-            std::cout << "EWTS ngen using module keys" << std::endl;
-            // moduleKey is stable key (lowercase)
-            const char* id_c = ewts::EwtsIdFromKey(moduleKey.c_str());
-            if (id_c) {
-                ewtsId = std::string(id_c);
-            }
+        // moduleKey is stable key (lowercase)
+        const char* id_c = ewts_ngen::EwtsIdFromKey(moduleKey.c_str());
+        if (id_c) {
+            ewtsId = std::string(id_c);
         }
-#else
-        // Fallback (should match module_registry.yaml)
-        ewtsId = "NGEN";
-#endif
 
         // Read config only when NGEN_RESULTS_DIR is set, per requirements.
         bool loaded = false;
@@ -130,13 +113,11 @@ void Logger::InitIfNeeded() {
             splitLogsByModule = false;
             // Prepopulate defaults for known modules (INFO) when generated registry is available.
             moduleLogLevels.clear();
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
-            for (const auto& e : ewts::kModules) {
+            for (const auto& e : ewts_ngen::kModules) {
                 if (e.key && *e.key) {                 // non-null and not ""
                     moduleLogLevels[std::string(e.key)] = LogLevel::INFO;
                 }
             }
-#endif
             moduleLogLevels[moduleKey] = LogLevel::INFO;
             logLevel = LogLevel::INFO;
         }
@@ -323,9 +304,8 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const cha
     // For bridged/per-module logging, filter using the effective level for the
     // incoming moduleName, not the singleton logger instance's own module level.
     LogLevel effectiveLevel = logger->logLevel;
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
     bool foundEffectiveLevel = false;
-    for (const auto& e : ewts::kModules) {
+    for (const auto& e : ewts_ngen::kModules) {
         if (e.ewts_id && moduleName == e.ewts_id) {
             if (e.key && *e.key) {
                 auto it = logger->moduleLogLevels.find(std::string(e.key));
@@ -344,11 +324,6 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const cha
     if (!foundEffectiveLevel) {
         effectiveLevel = LogLevel::INFO;
     }
-#else
-    if (moduleName != logger->ewtsId) {
-        effectiveLevel = LogLevel::INFO;
-    }
-#endif
     if (static_cast<int>(messageLevel) < static_cast<int>(effectiveLevel)) return;
 
     // Format varargs into a std::string
@@ -414,9 +389,8 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
     // For bridged/per-module logging, filter using the effective level for the
     // incoming moduleName, not the singleton logger instance's own module level.
     LogLevel effectiveLevel = logger->logLevel;
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
     bool foundEffectiveLevel = false;
-    for (const auto& e : ewts::kModules) {
+    for (const auto& e : ewts_ngen::kModules) {
         if (e.ewts_id && moduleName == e.ewts_id) {
             if (e.key && *e.key) {
                 auto it = logger->moduleLogLevels.find(std::string(e.key));
@@ -435,11 +409,6 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
     if (!foundEffectiveLevel) {
         effectiveLevel = LogLevel::INFO;
     }
-#else
-    if (moduleName != logger->ewtsId) {
-        effectiveLevel = LogLevel::INFO;
-    }
-#endif
     if (static_cast<int>(messageLevel) < static_cast<int>(effectiveLevel)) return;
 
     const std::string level_str = LevelToFixedString(messageLevel);
@@ -470,20 +439,7 @@ void Logger::Log(const std::string& message, LogLevel messageLevel) {
 }
 
 std::string Logger::LevelToFixedString(LogLevel level) {
-#if defined(EWTS_HAVE_LOG_LEVELS_HPP)
     const std::string name = std::string(ewts::LogLevelName(static_cast<int>(level)));
-#else
-    std::string name;
-    switch (level) {
-        case LogLevel::DEBUG:   name = "DEBUG"; break;
-        case LogLevel::PERFORM: name = "PERFORM"; break;
-        case LogLevel::INFO:    name = "INFO"; break;
-        case LogLevel::WARNING: name = "WARNING"; break;
-        case LogLevel::SEVERE:  name = "SEVERE"; break;
-        case LogLevel::FATAL:   name = "FATAL"; break;
-        default:                name = "INFO"; break;
-    }
-#endif
     // pad/truncate to 7 chars
     std::string out = name;
     if (out.size() < 7) out.append(7 - out.size(), ' ');
@@ -594,11 +550,10 @@ std::string Logger::JoinPath(const std::string& a, const std::string& b) {
 }
 
 std::string Logger::EnvVarIdentFromModuleKey(const std::string& key) {
-#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
     if (key.empty()) return "";
 
     // First try exact match
-    if (const char* id = ewts::EwtsIdFromKey(key.c_str())) {
+    if (const char* id = ewts_ngen::EwtsIdFromKey(key.c_str())) {
         return std::string(id);
     }
 
@@ -607,9 +562,8 @@ std::string Logger::EnvVarIdentFromModuleKey(const std::string& key) {
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
 
-    if (const char* id = ewts::EwtsIdFromKey(lower.c_str())) {
+    if (const char* id = ewts_ngen::EwtsIdFromKey(lower.c_str())) {
         return std::string(id);
     }
-#endif
     return "";
 }

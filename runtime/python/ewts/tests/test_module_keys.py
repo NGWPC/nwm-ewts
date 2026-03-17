@@ -8,8 +8,3 @@ def test_ewts_id_width_is_8():
 
 def test_module_key_lookup_and_duplicates_supported():
     assert ewts_id_from_key("t-route") == "TROUTE"
-    # cfe-s and cfe-x both map to CFE
-    assert ewts_id_from_key("cfe-s") == "CFE"
-    assert ewts_id_from_key("cfe-x") == "CFE"
-    keys = keys_from_ewts_id("CFE")
-    assert "cfe-s" in keys and "cfe-x" in keys

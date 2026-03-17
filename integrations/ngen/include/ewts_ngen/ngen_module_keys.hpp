@@ -5,14 +5,14 @@
  * Module registry: spec/module_registry.yaml
  * Module registry version: 1
  */
-    #ifndef EWTS_MODULE_KEYS_HPP
-    #define EWTS_MODULE_KEYS_HPP
+#ifndef EWTS_NGEN_MODULE_KEYS_HPP
+#define EWTS_NGEN_MODULE_KEYS_HPP
 
-    #include <cstddef>
-    #include <cstring>
-    #include <vector>
+#include <cstddef>
+#include <cstring>
+#include <vector>
 
-    namespace ewts {
+namespace ewts_ngen {
     struct ModuleEntry {
         const char* key;
         const char* ewts_id;
@@ -21,9 +21,21 @@
 
     static const ModuleEntry kModules[] = {
 {"ngen", "NGEN", "ngen framework"},
+{"cfe-s", "CFE", "Conceptual Functional Equivalent to the National Water Model (Schaake)"},
+{"cfe-x", "CFE", "Conceptual Functional Equivalent to the National Water Model (Xianjiang)"},
+{"cfe", "CFE", "Conceptual Functional Equivalent to the National Water Model (Generic for logging)"},
+{"forcing", "FORCING", "Forcing Engine"},
 {"lasam", "LASAM", "Lumped Arid/Semi-arid Model"},
+{"lstm", "LSTM", "Long Short-Term Memory Networks Model"},
+{"noah-owp-modular", "NOAHOWP", "Noah OWP Land Surface Model"},
+{"pet", "PET", "Potential Evapotranspiration Model"},
+{"sac-sma", "SACSMA", "Sacramento Soil Moisture Accounting Model"},
 {"sft", "SFT", "Soil Freeze-thaw Model"},
 {"smp", "SMP", "Soil Moisture Profiles Model"},
+{"snow-17", "SNOW17", "Snow Cccumulation and Melt Model"},
+{"topmodel", "TOPMODEL", "Physically Based, Distributed Watershed Model"},
+{"topoflow-glacier", "TFGLACR", "Glacier Model from the TopoFlow Model"},
+{"t-route", "TROUTE", "T-Route routing"},
 {"ueb", "UEB_BMI", "Utah Energy Balance Model"}
     };
 
@@ -79,6 +91,6 @@
         return nullptr;
     }
 
-    }  // namespace ewts
+    }  // namespace ewts_ngen
 
-    #endif  // EWTS_MODULE_KEYS_HPP
+    #endif  // EWTS_NGEN_MODULE_KEYS_HPP
