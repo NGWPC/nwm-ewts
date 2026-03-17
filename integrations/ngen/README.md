@@ -9,6 +9,25 @@ The integration provides a bridge between EWTS language runtimes
 
 ---
 
+## Table of Contents
+
+- [Purpose](#purpose)
+- [Initialization Behavior](#initialization-behavior)
+- [Log File Modes](#log-file-modes)
+  - [Unified log file (default)](#unified-log-file-default)
+  - [Split log files by module](#split-log-files-by-module)
+  - [Enabling split logs](#enabling-split-logs)
+  - [Full example](#full-example)
+  - [Behavior details](#behavior-details)
+- [Build](#build)
+- [Runtime Behavior](#runtime-behavior)
+- [Standalone Fallback](#standalone-fallback)
+- [Environment Variables](#environment-variables)
+- [Architecture](#architecture)
+- [Notes](#notes)
+
+---
+
 ## Purpose
 
 When ngen executes hydrologic formulations, multiple BMI modules may run
@@ -21,6 +40,8 @@ ensures that:
 - when running in an MPI system, logs are written to a rank identified log file per MPI process.
 
 ---
+
+
 
 ## Initialization Behavior
 
@@ -69,6 +90,84 @@ This approach guarantees:
 - initialization happens exactly once
 - no explicit initialization dependency in ngen
 - safe behavior even when multiple modules log during startup
+
+---
+
+## Log File Modes
+
+EWTS supports two log file modes when running under ngen.
+
+---
+
+### Unified log file (default)
+
+All log messages are written to:
+
+```
+logs/ngen_rank_<rank>.log
+```
+
+---
+
+### Split log files by module
+
+When enabled, logs are written per module:
+
+```
+logs/ngen_rank_0.log
+logs/CFE_rank_0.log
+logs/NOAHOWP_rank_0.log
+logs/SFT_rank_0.log
+logs/SMP_rank_0.log
+logs/TROUTE_rank_0.log
+```
+
+---
+
+### Enabling split logs
+
+Edit:
+
+```
+<NGEN_RESULTS_DIR>/ngen_logging.json
+```
+
+Add:
+
+```json
+{
+  "split_logs_by_module": true
+}
+```
+
+---
+
+### Full example
+
+```json
+{
+    "logging_enabled": true,
+    "split_logs_by_module": true,
+    "modules": {
+        "cfe-s": "info",
+        "sft": "info",
+        "smp": "info",
+        "t-route": "debug",
+        "ngen": "info",
+        "forcing": "info",
+        "noah-owp-modular": "info"
+    }
+}
+```
+
+---
+
+### Behavior details
+
+- Logs routed by EWTS ID passed into log call
+- Files created lazily
+- File handles remain open
+- One set per MPI rank
 
 ---
 

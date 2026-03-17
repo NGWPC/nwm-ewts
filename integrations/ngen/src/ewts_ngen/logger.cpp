@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iostream>
 #include <mpi.h>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <sys/stat.h>
@@ -260,12 +261,22 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         logFileDir = GetStandaloneBaseDir();
     }
 
+    (void)CreateDirectory(logFileDir);
+
+    if (splitLogsByModule) {
+        // In split mode, the destination file is selected per log call from the
+        // incoming EWTS id, so only the directory is initialized here.
+        logFilePath.clear();
+        std::cout << "EWTS split log files under " << logFileDir << std::endl;
+        return;
+    }
+
     // Determine file name
-    std::string stem = splitLogsByModule ? moduleKey : "ngen";
+    std::string stem = "ngen";
 
     std::string rank_part;
     if (mpi_is_initialized()) {
-        rank_part = "_rank_" + std::to_string(GetRank());
+        rank_part = "_rank_" + std::to_string(GetLogger()->GetRank());
     }
 
     // Optional timestamp suffix (only when no results dir)
@@ -276,8 +287,6 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
 
     const std::string filename = stem + rank_part + ts_part + ".log";
     logFilePath = JoinPath(logFileDir, filename);
-
-    (void)CreateDirectory(logFileDir);
 
     // Open file (append)
     logFile.open(logFilePath.c_str(), std::ios::out | std::ios::app);
@@ -419,6 +428,45 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
 
     std::istringstream in(message);
     std::string line;
+
+    if (logger->splitLogsByModule) {
+        static std::mutex splitLogMutex;
+        static std::map<std::string, std::ofstream> splitLogFiles;
+
+        // Route the message to the file for the EWTS id passed in this log call.
+        std::lock_guard<std::mutex> lock(splitLogMutex);
+
+        auto it = splitLogFiles.find(moduleName);
+        if (it == splitLogFiles.end()) {
+            std::string rank_part;
+            if (mpi_is_initialized()) {
+                rank_part = "_rank_" + std::to_string(logger->GetRank());
+            }
+
+            // Optional timestamp suffix (only when no results dir)
+            std::string ts_part;
+            const char* rd = std::getenv(kEnvResultsDir);
+            if (!(rd && std::strlen(rd) > 0)) {
+                ts_part = "_" + CreateCompactTimestampUTC();
+            }
+
+            const std::string filename = moduleName + rank_part + ts_part + ".log";
+            const std::string path = JoinPath(logger->logFileDir, filename);
+
+            std::ofstream& splitFile = splitLogFiles[moduleName];
+            splitFile.open(path.c_str(), std::ios::out | std::ios::app);
+            std::cout << "EWTS split log file " << path << std::endl;
+            it = splitLogFiles.find(moduleName);
+        }
+
+        if (it != splitLogFiles.end() && it->second.is_open() && it->second.good()) {
+            while (std::getline(in, line)) {
+                it->second << prefix << " " << line << std::endl;
+            }
+            it->second.flush();
+            return;
+        }
+    }
 
     if (logger->LogFileReady()) {
         while (std::getline(in, line)) {

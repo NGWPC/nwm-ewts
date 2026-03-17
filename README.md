@@ -9,6 +9,9 @@ When ngen is running it handles log entry formatting and file I/O. When modules 
 the individual language loggers handle formatting and file I/O. When running in an MPI system, 
 logs are written to a rank identified log file per MPI process.
 
+This EWTS framework supports two log file modes when running under ngen. A unified log file or
+log files split by module.
+
 This repository supports **module-scoped logging** for shared-runtime scenarios, so multiple
 modules can run in the same `ngen` process without colliding on logger identity.
 
@@ -57,12 +60,12 @@ catchments and timesteps. EWTS gives those components a common logging layer so 
 
 ```text
 runtime/
-  c/          C runtime
-  cpp/        C++ runtime
-  fortran/    Fortran runtime
+  c/          C runtime library
+  cpp/        C++ runtime libary
+  fortran/    Fortran runtime libray
   python/     Python package
 integrations/
-  ngen/       logger, ngen log bridge
+  ngen/       logger, ngen log bridge library
 spec/
   module_registry.yaml
   log_levels.json
@@ -96,6 +99,7 @@ The install step places the following artifacts in the install tree:
 - C runtime library
 - C++ runtime library
 - Fortran runtime modules and library
+- ngen integration ewts_ngen_bridge library
 - CMake package configuration files
 - generated headers and module constants
 - Python wheel for the EWTS Python runtime
@@ -241,4 +245,4 @@ A GitHub Actions workflow can be used to publish the site to GitHub Pages.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+See [LICENSE](LICENSE).
