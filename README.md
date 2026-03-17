@@ -4,6 +4,11 @@ EWTS is a lightweight, multi-language logging runtime used within the NGWPC ecos
 It provides consistent log formatting, module identity handling, environment-based configuration,
 and optional ngen bridge integration across C, C++, Fortran, and Python.
 
+All logging is done at single point using a bridge C log method all different languages call. 
+When ngen is running it handles log entry formatting and file I/O. When modules run standalone, 
+the individual language loggers handle formatting and file I/O. When running in an MPI system, 
+logs are written to a rank identified log file per MPI process.
+
 This repository supports **module-scoped logging** for shared-runtime scenarios, so multiple
 modules can run in the same `ngen` process without colliding on logger identity.
 
