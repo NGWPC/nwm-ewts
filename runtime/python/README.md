@@ -1,25 +1,56 @@
-
 # EWTS Python Runtime
 
-The EWTS Python runtime provides the same logging behavior as the
-C, C++, and Fortran runtimes while integrating with the shared EWTS
-configuration system.
+The EWTS Python runtime provides the Python implementation of the NWM EWTS
+(Error, Warning, and Trapping System) logging interface. It mirrors the
+logging behavior used by the C, C++, and Fortran runtimes while fitting normal
+Python package workflows.
 
 The Python package lives in:
 
-```
+```text
 runtime/python/ewts
 ```
 
-The source code for the package itself is located under:
+The package source code is located under:
 
-```
+```text
 runtime/python/ewts/src/ewts
+```
+
+The published/imported package name is:
+
+```python
+import ewts
 ```
 
 ---
 
-# Installation (Editable Development)
+# What Gets Installed
+
+When the repository is built and installed with CMake, the Python wheel is
+built and installed as an artifact under the install prefix. For example:
+
+```bash
+cmake -S . -B cmake_build -DCMAKE_BUILD_TYPE=Release -DEWTS_WITH_NGEN=ON -DEWTS_BUILD_SHARED=ON
+cmake --build cmake_build -j
+cmake --install cmake_build --prefix /tmp/ewts_install
+```
+
+This produces a wheel similar to:
+
+```text
+/tmp/ewts_install/python/dist/ewts-<version>-py3-none-any.whl
+```
+
+Important: placing the wheel under `/tmp/ewts_install` does **not** by itself
+make the package importable. A Python environment must still install that wheel
+with `pip`.
+
+---
+
+# Installation
+
+## Editable Development Install
 
 From the repository root:
 
@@ -27,12 +58,10 @@ From the repository root:
 pip install -e runtime/python/ewts
 ```
 
-This installs the EWTS Python runtime in editable mode so changes
-to the source tree take effect immediately.
+This installs the EWTS Python runtime in editable mode, so changes to the
+source tree take effect immediately in that Python environment.
 
----
-
-# Build Python Distribution
+## Build a Python Distribution Manually
 
 To build the Python package manually:
 
@@ -42,14 +71,69 @@ python -m build runtime/python/ewts
 
 This produces:
 
-```
+```text
 runtime/python/ewts/dist/
     ewts-<version>.whl
     ewts-<version>.tar.gz
 ```
 
-Note: when building the repository using the **top-level CMake build**,
-the Python wheel is built automatically.
+## Install the Built Wheel
+
+To install the built wheel into the active virtual environment:
+
+```bash
+pip install runtime/python/ewts/dist/ewts-<version>-py3-none-any.whl
+```
+
+Or, after a top-level CMake install:
+
+```bash
+pip install /tmp/ewts_install/python/dist/ewts-<version>-py3-none-any.whl
+```
+
+You can confirm where Python is importing the package from with:
+
+```bash
+python -c "import ewts; print(ewts.__file__)"
+```
+
+---
+
+# Using EWTS From Another Python Repository
+
+A different Python repository does not automatically see EWTS just because the
+framework was installed to `/tmp/ewts_install`. The consuming repository must
+install the EWTS wheel into its own active Python environment.
+
+Typical example:
+
+```bash
+cd /path/to/other-repo
+python -m venv .venv
+source .venv/bin/activate
+
+pip install /tmp/ewts_install/python/dist/ewts-<version>-py3-none-any.whl
+pip install -e .
+```
+
+After that, the consuming repository can simply do:
+
+```python
+import ewts
+```
+
+A consuming project *can* also reference a local wheel in `pyproject.toml`,
+for example:
+
+```toml
+[project]
+dependencies = [
+    "ewts @ file:///tmp/ewts_install/python/dist/ewts-<version>-py3-none-any.whl"
+]
+```
+
+However, this is usually best reserved for local testing because it hardcodes a
+machine-specific path.
 
 ---
 
@@ -57,7 +141,7 @@ the Python wheel is built automatically.
 
 Python unit tests live in:
 
-```
+```text
 runtime/python/ewts/tests
 ```
 
@@ -70,12 +154,13 @@ pip install -e runtime/python/ewts
 pytest runtime/python/ewts/tests
 ```
 
-Example:
+Examples:
 
 ```bash
 pytest -v runtime/python/ewts/tests
 ```
-or
+
+or simply:
 
 ```bash
 pytest
@@ -83,71 +168,211 @@ pytest
 
 ---
 
-# Basic Usage
+# Logger Model and Lazy Binding
+
+The Python EWTS logger now uses **lazy binding**.
+
+Calling `ewts.get_logger(...)` returns a proxy object immediately, but the real
+EWTS logger is **not** initialized until `bind()` is called. This allows
+modules to define a logger at import time without triggering EWTS
+initialization too early.
+
+This is especially useful when the runtime environment is not fully configured
+until the application entry point or BMI `Initialize()` method.
+
+## Recommended Pattern
+
+At module scope:
 
 ```python
 import ewts
 
-LOG = ewts.get_logger(ewts.T_ROUTE_ID)
-
-LOG("INFO", "Hello world")
+LOG = ewts.get_logger(ewts.FORCING_ID)
 ```
 
+Then, before the first log message, bind it explicitly from the runtime entry
+point:
+
+```python
+if hasattr(LOG, "bind"):
+    LOG.bind()
+```
+
+After binding, use the logger normally:
+
+```python
+LOG.info("Initializing forcing downloader")
+LOG.warning("Using fallback configuration")
+```
+
+## Important Rule
+
+Do **not** log before calling `bind()`.
+
+If a log method is called before the logger has been bound, the runtime raises
+an error explaining that the EWTS logger has not yet been initialized.
+
+This is intentional. It prevents accidental early initialization during module
+import and makes runtime setup explicit.
+
+## Why This Pattern Exists
+
+This behavior allows code such as:
+
+```python
+import ewts
+
+LOG = ewts.get_logger(ewts.FORCING_ID)
+```
+
+without forcing EWTS to determine at import time whether it should:
+
+- use ngen logging through the bridge, or
+- fall back to standalone file logging
+
+That decision is deferred until `LOG.bind()` is called.
+
+---
+
+# Basic Usage
+
+## Preferred Usage
+
+```python
+import ewts
+
+LOG = ewts.get_logger(ewts.FORCING_ID)
+LOG.bind()
+
+LOG.info("Hello from EWTS")
+LOG.perform("Finished a timed operation")
+LOG.severe("Something failed")
+```
+
+## Standard Logging-Style Usage
+
+The EWTS logger also supports familiar `logging.Logger`-style methods:
+
+```python
+LOG.debug("debug message")
+LOG.info("info message")
+LOG.warning("warning message")
+LOG.error("maps to SEVERE")
+LOG.critical("maps to FATAL")
+```
+
+The Python `PERFORM` level is also registered and maps to the EWTS perform
+level:
+
+```python
+LOG.perform("perform message")
+```
 ---
 
 # Module IDs
 
-The EWTS Python runtime provides predefined **module identifiers**
-for common NGWPC components. These are defined in:
+The EWTS Python runtime provides predefined **module identifier** constants for
+common NGWPC components. These are generated from the shared module registry and
+exported from the package.
 
-```
+The generated definitions live in:
+
+```text
 runtime/python/ewts/src/ewts/modules.py
 ```
 
-This file contains constants representing the canonical EWTS module IDs.
-Using these constants ensures that log messages from Python components
-use the same module identifiers as the C, C++, and Fortran runtimes.
+These constants should be used when obtaining a logger so that log messages use
+canonical EWTS identifiers shared across languages.
 
-Example module IDs include:
+Examples include:
 
 ```python
+ewts.FORCING_ID
 ewts.LSTM_ID
 ewts.T_ROUTE_ID
 ewts.TOPOFLOW_GLACIER_ID
 ```
 
-These constants should be used when obtaining a logger:
+Example:
 
 ```python
 import ewts
 
-LOG = ewts.get_logger(ewts.T_ROUTE_ID)
-
-LOG("INFO", "Initializing T-Route model")
+LOG = ewts.get_logger(ewts.FORCING_ID)
+LOG.bind()
+LOG.info("Initializing forcing workflow")
 ```
 
-Using the predefined module IDs ensures:
+Using the predefined IDs ensures:
 
 - consistent module identification across languages
-- correct log-level configuration via `<MODULE>_LOGLEVEL`
-- compatibility with ngen logging configuration
+- correct module-specific log-level lookup through `<MODULE>_LOGLEVEL`
+- compatibility with ngen bridge logging
+- alignment with the shared generated module registry
 
-Developers may define custom module IDs if necessary, but using the
-standard identifiers from `modules.py` is strongly recommended.
+Developers may define custom identifiers if necessary, but using the generated
+constants from `modules.py` is strongly recommended.
 
 ---
 
 # Environment Configuration
 
-The Python runtime uses the same environment variables as the other
-EWTS runtimes:
+The Python runtime uses the same environment variables as the other EWTS
+runtimes.
 
 | Variable | Purpose |
-|--------|--------|
-| `EWTS_ENABLED` | Enable or disable logging |
-| `EWTS_LOG_DIR` | Standalone log directory |
-| `EWTS_LOG_LEVEL` | Default log level |
-| `<MODULE>_LOGLEVEL` | Module-specific log level |
+|---|---|
+| `EWTS_ENABLED` | Enable or disable EWTS logging |
+| `EWTS_LOG_DIR` | Directory used for standalone file logging |
+| `EWTS_LOG_LEVEL` | Default global log level |
+| `<MODULE>_LOGLEVEL` | Module-specific log level override |
 | `NGEN_RESULTS_DIR` | ngen results/logging directory |
+| `EWTS_NGEN_BRIDGE_LIB` | Optional explicit path to the ngen bridge shared library |
+| `EWTS_DEBUG` | Enables bridge load diagnostics printed to stdout |
 
-See the main project README for additional details.
+In ngen mode, the Python runtime attempts to load the EWTS ngen bridge shared
+library and route messages through ngen logging.
+
+If ngen logging is not active or the bridge cannot be loaded, the Python runtime
+falls back to standalone file logging.
+
+---
+
+# Standalone vs ngen Logging
+
+## ngen Mode
+
+When ngen logging is active, the Python runtime sends messages through the EWTS
+ngen bridge shared library.
+
+## Standalone Mode
+
+When not running under ngen, the Python runtime writes to a standalone log file
+using the same EWTS-style formatted prefixes as the other runtimes.
+
+The standalone log file path is created automatically by the runtime.
+
+---
+
+# Notes for ngen Integrations
+
+When running inside ngen, initialize the module logger before the first log
+message. In practice, this is typically done from the module runtime entry point
+or BMI `Initialize()` implementation.
+
+Recommended pattern:
+
+```python
+import ewts
+
+LOG = ewts.get_logger(ewts.FORCING_ID)
+
+class SomeModel:
+    def Initialize(self, *args, **kwargs):
+        if hasattr(LOG, "bind"):
+            LOG.bind()
+        LOG.info("Initialize called")
+```
+
+This keeps the existing module-level `LOG = ewts.get_logger(...)` pattern while
+ensuring initialization happens at the correct time.
