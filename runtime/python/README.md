@@ -5,6 +5,26 @@ The EWTS Python runtime provides the Python implementation of the NWM EWTS
 logging behavior used by the C, C++, and Fortran runtimes while fitting normal
 Python package workflows.
 
+---
+
+# Table of Contents
+
+- [Package Location](#package-location)
+- [What Gets Installed](#what-gets-installed)
+- [Installation](#installation)
+- [Using EWTS From Another Python Repository](#using-ewts-from-another-python-repository)
+- [Running Unit Tests](#running-unit-tests)
+- [Logger Model and Lazy Binding](#logger-model-and-lazy-binding)
+- [Basic Usage](#basic-usage)
+- [Module IDs](#module-ids)
+- [Environment Configuration](#environment-configuration)
+- [Standalone vs ngen Logging](#standalone-vs-ngen-logging)
+- [Notes for ngen Integrations](#notes-for-ngen-integrations)
+
+---
+
+# Package location
+
 The Python package lives in:
 
 ```text
@@ -186,7 +206,6 @@ At module scope:
 
 ```python
 import ewts
-
 LOG = ewts.get_logger(ewts.FORCING_ID)
 ```
 
@@ -197,6 +216,11 @@ point:
 if hasattr(LOG, "bind"):
     LOG.bind()
 ```
+or simply:
+```python
+LOG.bind()
+```
+
 
 After binding, use the logger normally:
 
@@ -215,13 +239,40 @@ an error explaining that the EWTS logger has not yet been initialized.
 This is intentional. It prevents accidental early initialization during module
 import and makes runtime setup explicit.
 
+## ⚠️ Important: Avoid Logging at Import Time
+
+EWTS Python loggers use **lazy initialization** and must be explicitly initialized at runtime using:
+
+```python
+LOG.bind()
+```
+
+### ❌ Do NOT log at module import time
+
+Avoid placing log statements at the top level of a module, such as:
+
+```python
+import ewts
+LOG = ewts.get_logger(ewts.FORCING_ID)
+
+LOG.debug("Initializing module")  # ❌ This runs at import time
+```
+
+In Python, module-level code executes immediately when the module is imported — *before* your application has initialized the logging system.
+
+This can lead to:
+- logging before `LOG.bind()` is called
+- messages being dropped or misrouted
+- unexpected initialization behavior
+
+---
+
 ## Why This Pattern Exists
 
 This behavior allows code such as:
 
 ```python
 import ewts
-
 LOG = ewts.get_logger(ewts.FORCING_ID)
 ```
 
@@ -240,10 +291,14 @@ That decision is deferred until `LOG.bind()` is called.
 
 ```python
 import ewts
-
 LOG = ewts.get_logger(ewts.FORCING_ID)
+```
+In the BMI Initilize or class `__init__` method:
+```
 LOG.bind()
-
+```
+Then within methods (not at the module level): 
+```
 LOG.info("Hello from EWTS")
 LOG.perform("Finished a timed operation")
 LOG.severe("Something failed")
@@ -297,10 +352,7 @@ Example:
 
 ```python
 import ewts
-
 LOG = ewts.get_logger(ewts.FORCING_ID)
-LOG.bind()
-LOG.info("Initializing forcing workflow")
 ```
 
 Using the predefined IDs ensures:
