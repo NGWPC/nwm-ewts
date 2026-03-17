@@ -1,23 +1,19 @@
 from __future__ import annotations
 
-import os
-import sys
-
 import ctypes
+import logging
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Any
-import traceback
+from typing import Any, Dict, Optional
 
-import logging
+from .config import get_level_for_ewts_id, load_config
+from .formatter import format_prefix, split_lines
+from .helper import getenv_any
+from .paths import make_log_path
 
 # Register EWTS PERFORM level with Python logging
 logging.addLevelName(15, "PERFORM")
-
-from .config import load_config, get_level_for_ewts_id
-from .formatter import format_prefix, split_lines
-from .paths import make_log_path
-from .helper import getenv_any
 
 try:
     from .module_keys import ewts_id_from_key
@@ -27,15 +23,25 @@ except Exception:
 try:
     from .log_levels import LEVELS
 except Exception:
-    LEVELS = {"NOTSET": 0, "DEBUG": 10, "PERFORM": 15, "INFO": 20, "WARNING": 30, "SEVERE": 40, "FATAL": 50}
+    LEVELS = {
+        "NOTSET": 0,
+        "DEBUG": 10,
+        "PERFORM": 15,
+        "INFO": 20,
+        "WARNING": 30,
+        "SEVERE": 40,
+        "FATAL": 50,
+    }
 
 # Reverse lookup for printing level names
 _LEVEL_NAMES = {v: k for k, v in LEVELS.items()}
 
 _init_printed = set()
 
+
 def _level_name(level: int) -> str:
     return _LEVEL_NAMES.get(level, str(level))
+
 
 def _resolve_ewts_id(module_key_or_ewts_id: str) -> str:
     s = (module_key_or_ewts_id or "").strip()
@@ -46,6 +52,7 @@ def _resolve_ewts_id(module_key_or_ewts_id: str) -> str:
         if v:
             return v
     return s.upper()
+
 
 @dataclass
 class _NgenBridge:
@@ -70,11 +77,12 @@ class _NgenBridge:
                 fn.argtypes = (ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p)
                 fn.restype = None
                 return _NgenBridge(lib=lib, fn=fn)
-            except Exception:
+            except Exception as e:
+                last_err = e
                 continue
-        
+
         if getenv_any("EWTS_DEBUG", ""):
-            print("EWTS: failed to load ngen bridge:", last_err)
+            print("EWTS: failed to load ngen bridge:", last_err, flush=True)
 
         return None
 
@@ -83,30 +91,69 @@ class _NgenBridge:
         b_msg = (message or "").encode("utf-8")
         self.fn(b_id, int(level), b_msg)
 
+
+class EwtsHandler(logging.Handler):
+    """
+    Logging handler that routes standard Python logging records
+    into the EWTS backend.
+    """
+
+    def __init__(self, ewts_logger: "EwtsLogger"):
+        super().__init__(level=logging.NOTSET)
+        self.ewts_logger = ewts_logger
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            level = self.ewts_logger._map_python_level_to_ewts(record.levelno)
+            self.ewts_logger._write(level, msg)
+        except Exception:
+            self.handleError(record)
+
+
 class EwtsLogger:
-    """Logger keyed strictly by ewts_id."""
+    """Logger keyed strictly by ewts_id, with Python logging compatibility."""
 
     def __init__(self, ewts_id: str):
         self.ewts_id = ewts_id.upper()
         self._bridge: Optional[_NgenBridge] = None
         self._log_path: Optional[Path] = None
         self._min_level: int = LEVELS.get("INFO", 20)
+
         self._init()
 
-    def _init(self) -> None:
+        # Backing Python logger for compatibility with logging.Logger API
+        self._logger = logging.getLogger(f"ewts.{self.ewts_id}")
+        self._logger.propagate = False
 
+        # Replace any existing EWTS handler so it always points at *this* EwtsLogger.
+        # This is important because logging.getLogger(name) returns the same named
+        # Python logger object process-wide, and an older EwtsHandler may still be
+        # attached from an earlier initialization attempt.
+        for h in list(self._logger.handlers):
+            if isinstance(h, EwtsHandler):
+                self._logger.removeHandler(h)
+
+        handler = EwtsHandler(self)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        self._logger.addHandler(handler)
+
+        # Keep Python logger level aligned with EWTS min level
+        self._logger.setLevel(self._min_level)
+
+    def _init(self) -> None:
         cfg = load_config(self.ewts_id)
         self._min_level = cfg.default_level
 
         if not cfg.enabled:
             if self.ewts_id not in _init_printed:
-                print(f"EWTS {self.ewts_id} logging is DISABLED")
+                print(f"EWTS {self.ewts_id} logging is DISABLED", flush=True)
             self._min_level = 999
             _init_printed.add(self.ewts_id)
             return
 
-        if self.ewts_id not in _init_printed:    
-            print(f"EWTS {self.ewts_id} logging is ENABLED")
+        if self.ewts_id not in _init_printed:
+            print(f"EWTS {self.ewts_id} logging is ENABLED", flush=True)
 
             env_key = f"{self.ewts_id}_LOGLEVEL"
             env_val = getenv_any(env_key, "").strip()
@@ -116,28 +163,28 @@ class EwtsLogger:
                     env_level_name = _level_name(int(env_val))
                 else:
                     env_level_name = env_val.upper()
-                print(f"EWTS {self.ewts_id} log level from env var {env_key} is {env_level_name}")
+                print(f"EWTS {self.ewts_id} log level from env var {env_key} is {env_level_name}", flush=True)
             else:
-                print(f"EWTS {self.ewts_id} log level from default EWTS_LOG_LEVEL")
+                print(f"EWTS {self.ewts_id} log level from default EWTS_LOG_LEVEL", flush=True)
 
-            print(f"EWTS {self.ewts_id} log level set to {_level_name(self._min_level)}")
+            print(f"EWTS {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
 
         if cfg.ngen_active:
             self._bridge = _NgenBridge.try_load()
             # If the bridge isn't available, we still fall back to standalone.
             if self._bridge is not None:
                 if self.ewts_id not in _init_printed:
-                    print(f"EWTS {self.ewts_id} using ngen for logging")
+                    print(f"EWTS {self.ewts_id} using ngen for logging", flush=True)
                 _init_printed.add(self.ewts_id)
                 return
 
         # Standalone file sink
         if self.ewts_id not in _init_printed:
-            print(f"EWTS {self.ewts_id} using standalone file logging")
+            print(f"EWTS {self.ewts_id} using standalone file logging", flush=True)
         self._log_path = make_log_path(self.ewts_id, cfg.log_dir)
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
         if self.ewts_id not in _init_printed:
-            print(f"EWTS {self.ewts_id} log file: {self._log_path}")
+            print(f"EWTS {self.ewts_id} log file: {self._log_path}", flush=True)
         _init_printed.add(self.ewts_id)
 
     @staticmethod
@@ -162,18 +209,24 @@ class EwtsLogger:
             return text + "\n" + "".join(traceback.format_exception(*exc_info))
         except Exception:
             return text
-    
-    def set_level_from_env(self) -> None:
-        # Allow user to change at runtime (e.g., after ngen sets env vars)
-        self._min_level = get_level_for_ewts_id(self.ewts_id)
-        print(f"EWTS {self.ewts_id} log level set to ")
 
-    def log(self, level: int, msg, *args, exc_info=None, **kwargs) -> None:
+    @staticmethod
+    def _map_python_level_to_ewts(level: int) -> int:
+        if level >= logging.CRITICAL:
+            return LEVELS.get("FATAL", 50)
+        if level >= logging.ERROR:
+            return LEVELS.get("SEVERE", 40)
+        if level >= logging.WARNING:
+            return LEVELS.get("WARNING", 30)
+        if level >= logging.INFO:
+            return LEVELS.get("INFO", 20)
+        if level >= LEVELS.get("PERFORM", 15):
+            return LEVELS.get("PERFORM", 15)
+        return LEVELS.get("DEBUG", 10)
+
+    def _write(self, level: int, text: str) -> None:
         if int(level) < int(self._min_level):
             return
-
-        text = self._format_msg(msg, args)
-        text = self._maybe_add_exc(text, exc_info)
 
         if self._bridge is not None:
             self._bridge.log(self.ewts_id, int(level), text)
@@ -185,24 +238,35 @@ class EwtsLogger:
             for line in split_lines(text):
                 f.write(f"{prefix} {line}\n")
 
-    # Convenience methods
+    def set_level_from_env(self) -> None:
+        self._min_level = get_level_for_ewts_id(self.ewts_id)
+        self._logger.setLevel(self._min_level)
+        print(f"EWTS {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
+
+    def log(self, level: int, msg, *args, exc_info=None, **kwargs) -> None:
+        text = self._format_msg(msg, args)
+        text = self._maybe_add_exc(text, exc_info)
+        self._write(int(level), text)
+
+    # Convenience methods route through the Python logger so any user-added
+    # handlers also receive records.
     def debug(self, msg, *args, **kwargs) -> None:
-        self.log(LEVELS.get("DEBUG", 10), msg, *args, **kwargs)
+        self._logger.debug(msg, *args, **kwargs)
 
     def perform(self, msg, *args, **kwargs) -> None:
-        self.log(LEVELS.get("PERFORM", 15), msg, *args, **kwargs)
+        self._logger.log(LEVELS.get("PERFORM", 15), msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs) -> None:
-        self.log(LEVELS.get("INFO", 20), msg, *args, **kwargs)
+        self._logger.info(msg, *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs) -> None:
-        self.log(LEVELS.get("WARNING", 30), msg, *args, **kwargs)
+        self._logger.warning(msg, *args, **kwargs)
 
     def severe(self, msg, *args, **kwargs) -> None:
-        self.log(LEVELS.get("SEVERE", 40), msg, *args, **kwargs)
+        self._logger.error(msg, *args, **kwargs)
 
     def fatal(self, msg, *args, **kwargs) -> None:
-        self.log(LEVELS.get("FATAL", 50), msg, *args, **kwargs)
+        self._logger.critical(msg, *args, **kwargs)
 
     # Aliases
     def error(self, msg, *args, **kwargs) -> None:
@@ -211,14 +275,127 @@ class EwtsLogger:
     def critical(self, msg, *args, **kwargs) -> None:
         self.fatal(msg, *args, **kwargs)
 
-_LOGGER_CACHE: Dict[str, EwtsLogger] = {}
+    # Compatibility properties/methods for standard logging patterns
+    @property
+    def handlers(self):
+        return self._logger.handlers
 
-def get_logger(module_key_or_ewts_id: str) -> EwtsLogger:
+    @property
+    def name(self) -> str:
+        return self._logger.name
+
+    @property
+    def propagate(self) -> bool:
+        return self._logger.propagate
+
+    @propagate.setter
+    def propagate(self, value: bool) -> None:
+        self._logger.propagate = value
+
+    def addHandler(self, handler: logging.Handler) -> None:
+        self._logger.addHandler(handler)
+
+    def removeHandler(self, handler: logging.Handler) -> None:
+        self._logger.removeHandler(handler)
+
+    def setLevel(self, level: int) -> None:
+        self._min_level = int(level)
+        self._logger.setLevel(int(level))
+
+    def getEffectiveLevel(self) -> int:
+        return self._logger.getEffectiveLevel()
+
+    def isEnabledFor(self, level: int) -> bool:
+        return int(level) >= int(self._min_level)
+
+    def hasHandlers(self) -> bool:
+        return self._logger.hasHandlers()
+
+
+class BoundEwtsLoggerProxy:
+    """
+    Proxy returned by get_logger() so module-level logger creation does not
+    trigger EWTS initialization during import time.
+
+    The real EwtsLogger is created only when bind() is called explicitly.
+    """
+
+    def __init__(self, ewts_id: str):
+        self.ewts_id = ewts_id.upper()
+        self._real_logger: Optional[EwtsLogger] = None
+
+    def bind(self) -> EwtsLogger:
+        if self._real_logger is None:
+            self._real_logger = EwtsLogger(self.ewts_id)
+        return self._real_logger
+
+    def is_bound(self) -> bool:
+        return self._real_logger is not None
+
+    def _require_bound(self) -> EwtsLogger:
+        if self._real_logger is None:
+            raise RuntimeError(
+                f"EWTS logger {self.ewts_id} has not been bound yet. "
+                f"Call ewts.bind_logger('{self.ewts_id}') or LOG.bind() "
+                f"from the runtime entry point before logging."
+            )
+        return self._real_logger
+
+    def __getattr__(self, name):
+        return getattr(self._require_bound(), name)
+
+    @property
+    def handlers(self):
+        return self._require_bound().handlers
+
+    @property
+    def name(self) -> str:
+        return self._require_bound().name
+
+    @property
+    def propagate(self) -> bool:
+        return self._require_bound().propagate
+
+    @propagate.setter
+    def propagate(self, value: bool) -> None:
+        self._require_bound().propagate = value
+
+    def addHandler(self, handler: logging.Handler) -> None:
+        self._require_bound().addHandler(handler)
+
+    def removeHandler(self, handler: logging.Handler) -> None:
+        self._require_bound().removeHandler(handler)
+
+    def setLevel(self, level: int) -> None:
+        self._require_bound().setLevel(level)
+
+    def getEffectiveLevel(self) -> int:
+        return self._require_bound().getEffectiveLevel()
+
+    def isEnabledFor(self, level: int) -> bool:
+        return self._require_bound().isEnabledFor(level)
+
+    def hasHandlers(self) -> bool:
+        return self._require_bound().hasHandlers()
+
+
+_LOGGER_CACHE: Dict[str, BoundEwtsLoggerProxy] = {}
+
+
+def get_logger(module_key_or_ewts_id: str) -> BoundEwtsLoggerProxy:
     """Return a cached logger keyed by ewts_id."""
     ewts_id = _resolve_ewts_id(module_key_or_ewts_id)
     lg = _LOGGER_CACHE.get(ewts_id)
     if lg is not None:
         return lg
-    lg = EwtsLogger(ewts_id)
+    lg = BoundEwtsLoggerProxy(ewts_id)
     _LOGGER_CACHE[ewts_id] = lg
     return lg
+
+
+def bind_logger(module_key_or_ewts_id: str) -> EwtsLogger:
+    """
+    Explicitly initialize and bind the logger for the given ewts_id.
+    Safe to call multiple times; it returns the same bound logger per process.
+    """
+    return get_logger(module_key_or_ewts_id).bind()

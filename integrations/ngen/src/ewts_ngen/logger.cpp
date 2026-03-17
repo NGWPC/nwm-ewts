@@ -319,7 +319,37 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const cha
     Logger* logger = GetLogger();
     logger->InitIfNeeded();
     if (!logger->loggingEnabled) return;
-    if (static_cast<int>(messageLevel) < static_cast<int>(logger->logLevel)) return;
+
+    // For bridged/per-module logging, filter using the effective level for the
+    // incoming moduleName, not the singleton logger instance's own module level.
+    LogLevel effectiveLevel = logger->logLevel;
+#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
+    bool foundEffectiveLevel = false;
+    for (const auto& e : ewts::kModules) {
+        if (e.ewts_id && moduleName == e.ewts_id) {
+            if (e.key && *e.key) {
+                auto it = logger->moduleLogLevels.find(std::string(e.key));
+                if (it != logger->moduleLogLevels.end()) {
+                    effectiveLevel = it->second;
+                    foundEffectiveLevel = true;
+                }
+            }
+            break;
+        }
+    }
+    if (!foundEffectiveLevel && moduleName == logger->ewtsId) {
+        effectiveLevel = logger->logLevel;
+        foundEffectiveLevel = true;
+    }
+    if (!foundEffectiveLevel) {
+        effectiveLevel = LogLevel::INFO;
+    }
+#else
+    if (moduleName != logger->ewtsId) {
+        effectiveLevel = LogLevel::INFO;
+    }
+#endif
+    if (static_cast<int>(messageLevel) < static_cast<int>(effectiveLevel)) return;
 
     // Format varargs into a std::string
     va_list args1;
@@ -380,7 +410,37 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
     logger->InitIfNeeded();
 
     if (!logger->loggingEnabled) return;
-    if (static_cast<int>(messageLevel) < static_cast<int>(logger->logLevel)) return;
+
+    // For bridged/per-module logging, filter using the effective level for the
+    // incoming moduleName, not the singleton logger instance's own module level.
+    LogLevel effectiveLevel = logger->logLevel;
+#if defined(EWTS_HAVE_MODULE_KEYS_HPP)
+    bool foundEffectiveLevel = false;
+    for (const auto& e : ewts::kModules) {
+        if (e.ewts_id && moduleName == e.ewts_id) {
+            if (e.key && *e.key) {
+                auto it = logger->moduleLogLevels.find(std::string(e.key));
+                if (it != logger->moduleLogLevels.end()) {
+                    effectiveLevel = it->second;
+                    foundEffectiveLevel = true;
+                }
+            }
+            break;
+        }
+    }
+    if (!foundEffectiveLevel && moduleName == logger->ewtsId) {
+        effectiveLevel = logger->logLevel;
+        foundEffectiveLevel = true;
+    }
+    if (!foundEffectiveLevel) {
+        effectiveLevel = LogLevel::INFO;
+    }
+#else
+    if (moduleName != logger->ewtsId) {
+        effectiveLevel = LogLevel::INFO;
+    }
+#endif
+    if (static_cast<int>(messageLevel) < static_cast<int>(effectiveLevel)) return;
 
     const std::string level_str = LevelToFixedString(messageLevel);
 
