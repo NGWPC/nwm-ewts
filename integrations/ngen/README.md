@@ -115,11 +115,11 @@ When enabled, logs are written per module:
 
 ```
 logs/ngen_rank_0.log
-logs/CFE_rank_0.log
-logs/NOAHOWP_rank_0.log
-logs/SFT_rank_0.log
-logs/SMP_rank_0.log
-logs/TROUTE_rank_0.log
+logs/cfe_rank_0.log
+logs/noahowp_rank_0.log
+logs/sft_rank_0.log
+logs/smp_rank_0.log
+logs/troute_rank_0.log
 ```
 
 ---

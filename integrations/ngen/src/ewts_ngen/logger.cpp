@@ -450,7 +450,7 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
                 ts_part = "_" + CreateCompactTimestampUTC();
             }
 
-            const std::string filename = moduleName + rank_part + ts_part + ".log";
+            const std::string filename = ToLower(moduleName) + rank_part + ts_part + ".log";
             const std::string path = JoinPath(logger->logFileDir, filename);
 
             std::ofstream& splitFile = splitLogFiles[moduleName];
