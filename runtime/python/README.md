@@ -1,7 +1,7 @@
 # EWTS Python Runtime
 
 The EWTS Python runtime provides the Python implementation of the NWM EWTS
-(Error, Warning, and Trapping System) logging interface. It mirrors the
+(Error and Warning Trapping System) logging interface. It mirrors the
 logging behavior used by the C, C++, and Fortran runtimes while fitting normal
 Python package workflows.
 

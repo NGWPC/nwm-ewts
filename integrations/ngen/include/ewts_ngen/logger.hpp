@@ -74,6 +74,8 @@ class Logger {
     static bool FileExists(const std::string& path);
     static bool DirectoryExists(const std::string& path);
     static bool CreateDirectory(const std::string& path);
+    static bool FindConfigFileFromPath(std::string path, std::string& configPath);
+    static std::string GetParentDirName(const std::string& path);
 
     static std::string GetHomeDir();
     static std::string JoinPath(const std::string& a, const std::string& b);

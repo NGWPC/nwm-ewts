@@ -140,15 +140,44 @@ void Logger::InitIfNeeded() {
     });
 }
 
+std::string Logger::GetParentDirName(const std::string& path) {
+    if (path.empty()) return "";
+
+    const std::size_t pos = path.find_last_of('/');
+    if (pos == std::string::npos) return "";
+    if (pos == 0) return "/";
+
+    return path.substr(0, pos);
+}
+
+bool Logger::FindConfigFileFromPath(std::string path, std::string& configPath) {
+    while (!path.empty()) {
+        const std::string candidate = JoinPath(path, kConfigFilename);
+        if (FileExists(candidate)) {
+            configPath = candidate;
+            return true;
+        }
+
+        const std::string parent = GetParentDirName(path);
+        if (parent.empty() || parent == path) break;
+        path = parent;
+    }
+
+    return false;
+}
+
 bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     // Defaults
     loggingEnabled = true;
     splitLogsByModule = false;
     moduleLogLevels[moduleKey] = LogLevel::INFO;
 
-    const std::string cfg = JoinPath(resultsDir, kConfigFilename);
-    if (!FileExists(cfg)) {
-        std::cout << "WARNING: EWTS config file " << cfg << " NOT FOUND. Defaults will be used" << std::endl;
+    std::string cfg;
+    if (!FindConfigFileFromPath(resultsDir, cfg)) {
+        std::cout << "WARNING: EWTS config file " << kConfigFilename
+                  << " NOT FOUND in " << resultsDir
+                  << " or any parent directory. Defaults will be used"
+                  << std::endl;
         // No config file: keep defaults, but still export log level environment variables.
         logLevel = moduleLogLevels[moduleKey];
         return false;
@@ -160,14 +189,13 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     try {
         boost::property_tree::read_json(cfg, pt);
     } catch (const std::exception& e) {
-        // If config is malformed, fall back to defaults but keep logging enabled.
         logLevel = moduleLogLevels[moduleKey];
+        // If config is malformed, fall back to defaults but keep logging enabled.
         std::cerr << "WARNING: failed to parse " << cfg << ": " << e.what() << std::endl;
         return false;
     }
 
     // EWTS/logging enabled
-    // Prefer explicit "ewts_enabled" if present; else use "logging_enabled".
     bool enabled = true;
     auto opt_ewts_enabled = pt.get_optional<bool>("ewts_enabled");
     if (opt_ewts_enabled) {
@@ -177,16 +205,15 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
         if (opt_logging_enabled) enabled = *opt_logging_enabled;
     }
     loggingEnabled = enabled;
-    std::cout << "EWTS logging " << ((loggingEnabled)? "ENABLED":"DISABLED") << std::endl;
+    std::cout << "EWTS logging " << (loggingEnabled ? "ENABLED" : "DISABLED") << std::endl;
 
-    // split_logs_by_module (optional)
+    // split_logs_by_module
     auto opt_split = pt.get_optional<bool>("split_logs_by_module");
     if (opt_split) splitLogsByModule = *opt_split;
     std::cout << "EWTS logging to "
               << (splitLogsByModule ? "<MODULE>" : "a UNIFIED ngen")
               << " per rank file" << std::endl;
 
-    // split_logs_by_module (optional)
     auto modules_child = pt.get_child_optional("modules");
     if (modules_child) {
         for (const auto& kv : *modules_child) {
@@ -205,7 +232,6 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
         }
     }
 
-    // This module's effective level
     auto it = moduleLogLevels.find(moduleKey);
     logLevel = (it != moduleLogLevels.end()) ? it->second : LogLevel::INFO;
     return true;
