@@ -1,4 +1,4 @@
-# EWTS — Error, Warning, and Trapping System
+# EWTS — Error and Warning Trapping System
 
 EWTS is a lightweight, multi-language logging runtime used within the NGWPC ecosystem.
 It provides consistent log formatting, module identity handling, environment-based configuration,
