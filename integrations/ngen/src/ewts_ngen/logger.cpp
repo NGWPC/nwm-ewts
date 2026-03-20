@@ -29,6 +29,7 @@ static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
 static const char* const kConfigFilename   = "ngen_logging.json";
 static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
 static const char* const kDefaultRunLogsDirName = "run_logs";
+static std::string       kLogRankLabel      = "mpi_process";
 
 inline bool IsDigitString(const std::string& s) {
     if (s.empty()) return false;
@@ -302,7 +303,7 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
 
     std::string rank_part;
     if (mpi_is_initialized()) {
-        rank_part = "_rank_" + std::to_string(GetLogger()->GetRank());
+        rank_part = "_" + kLogRankLabel + "_" + std::to_string(GetLogger()->GetRank());
     }
 
     // Optional timestamp suffix (only when no results dir)
@@ -466,7 +467,7 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
         if (it == splitLogFiles.end()) {
             std::string rank_part;
             if (mpi_is_initialized()) {
-                rank_part = "_rank_" + std::to_string(logger->GetRank());
+                rank_part = "_" + kLogRankLabel + "_" + std::to_string(logger->GetRank());
             }
 
             // Optional timestamp suffix (only when no results dir)
