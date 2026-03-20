@@ -68,3 +68,11 @@ modules:
     ewts_id: UEB_BMI
     language: cpp
     description: "Utah Energy Balance Model"
+  - key: schism
+    ewts_id: SCHISM
+    language: fortran
+    description: "Semi-implicit Cross-scale Hydroscience Integrated System Model (SCHISM)"
+  - key: sfincs
+    ewts_id: SFINCS
+    language: fortran
+    description: "Super-fast modelling of dynamic compound flooding in Coastal Systems"
