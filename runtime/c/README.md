@@ -101,6 +101,33 @@ This prevents file I/O collisions across ranks.
 
 In split-by-module mode, the file stem changes but the per-rank rule remains.
 
+
+## Module CMakeList Update
+
+```
+# --- EWTS (installed from nwm-ewts) ---
+find_package(ewts CONFIG REQUIRED)
+
+# Always use EWTS runtime logger for C
+target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_c)
+
+# Built with ngen bridge
+target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_ngen_bridge)
+target_compile_definitions(<cmake lib name> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+
+# Code requires minimum of C99 standard to compile
+set_target_properties(<cmake lib name> PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+```
+
+## Standalone Mode
+
+Outside the ngen results environment, standalone logging uses the following
+directory priority:
+
+1. `EWTS_LOG_DIR`
+2. `$HOME/run_logs`
+3. `./run_logs`
+
 ## Related documentation
 
 - user-facing overview: `docs/runtimes/c.md`

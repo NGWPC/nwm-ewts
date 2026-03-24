@@ -159,6 +159,19 @@ In split-by-module mode, the file stem changes but the per-rank rule remains.
 
 ---
 
+## Module CMakeList Update
+```
+# --- EWTS (installed from nwm-ewts) ---
+find_package(ewts CONFIG REQUIRED)
+
+# Always use EWTS runtime logger for Fortran
+target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_fortran)
+
+# Built with ngen bridge
+target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_ngen_bridge)
+target_compile_definitions(<cmake lib name> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+```
+
 ## Standalone Mode
 
 Outside the ngen results environment, standalone logging uses the following

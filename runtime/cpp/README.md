@@ -79,7 +79,20 @@ This prevents file I/O collisions across ranks.
 
 In split-by-module mode, the file stem changes but the per-rank rule remains.
 
----
+## Module CMakeList Update
+
+```
+# --- EWTS (installed from nwm-ewts) ---
+find_package(ewts CONFIG REQUIRED)
+
+# Always use EWTS runtime logger for CPP
+target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_cpp)
+
+# Built with ngen bridge
+target_link_libraries(<cmake lib name> PRIVATE 
+    "-Wl,--no-as-needed" ewts::ewts_ngen_bridge "-Wl,--as-needed")
+target_compile_definitions(<cmake lib name> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
+```
 
 ## Standalone Mode
 
