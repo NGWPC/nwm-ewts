@@ -1,5 +1,6 @@
 module logger
   use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
+  use iso_fortran_env, only: output_unit
   use ewts_log_levels, only: ewts_log_level_name
   implicit none
   private
@@ -344,6 +345,9 @@ contains
 #else
     write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging standalone"
 #endif
+
+    flush(output_unit)
+
   end subroutine init_logger_state
 
   logical function is_logger_enabled()
@@ -468,6 +472,7 @@ contains
       flush(g_loggers(idx)%unit_log)
     else
       write(*, "(A,' ',A,' ',A,' ',A)") trim(ts), id8, lv7, trim(msg)
+      flush(output_unit)
     end if
   end subroutine write_log_module
 
