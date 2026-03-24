@@ -1,6 +1,6 @@
-# EWTS Documentation
+# Error and Warning Trapping System (EWTS)
 
-EWTS is a multi-language logging framework for hydrologic modules that run
+The EWTS is a multi-language logging framework for hydrologic modules that run
 within `ngen` or as standalone applications. It provides consistent log levels,
 module identities, and environment-driven configuration across C, C++, Fortran,
 and Python.
