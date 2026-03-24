@@ -1,166 +1,99 @@
 # EWTS C++ Runtime
 
-The EWTS C++ runtime provides logging facilities for C++ components running
-within **ngen hydrologic workflows** or as standalone applications.
+This directory contains the developer-facing documentation for the EWTS C++
+runtime library.
 
-It shares the same configuration system and module identity model as the C,
-Fortran, and Python runtimes.
+The C++ runtime library provides logging support for C++-based modules and shared
+runtime execution within the EWTS framework.
 
-The runtime implementation is located under:
+## Directory role
 
-```text
-runtime/cpp/
-```
+The implementation in `runtime/cpp/` provides:
 
----
+- the native C++ logger implementation used outside `ngen`
+- generated C++ module keys and log-level constants
+- shared-runtime module identity handling
+- bridging support for `ngen`-integrated execution
 
-## Key Concepts
+## Design goals
 
-The C++ runtime uses a **module-scoped logger model**.
+The C++ runtime is structured to preserve:
 
-Each module obtains a logger bound to a unique EWTS module ID. This prevents
-collisions when multiple modules run inside the same `ngen` process.
+- consistent behavior with the C, Fortran, and Python language-specific Runtime Libraries
+- safe module identity handling when more than one module logs in the same
+  process
+- environment-driven configuration
+- per-rank file separation for MPI execution
 
----
+## Shared-runtime behavior
 
-## Important: Initialization When Running with ngen
+The C++ runtime library is used in scenarios where multiple modules may run within the
+same process. Logger identity therefore needs to be module-scoped rather than
+process-global.
 
-When EWTS is used within **ngen**, it is important to initialize the module
-logger **before the first log call**.
+This is especially important under `ngen`, where more than one formulation or
+module may emit log messages through the same executable.
 
-The recommended place to do this is inside the module’s **BMI `Initialize()`**
-method.
+## Log levels
 
-This ensures:
+The C++ runtime library uses the canonical EWTS levels:
 
-- the correct **module ID** is bound before any message is emitted
-- module-specific configuration such as `<MODULE>_LOGLEVEL` is applied
-- logging is correctly routed through the ngen bridge when active
-- the first log lines are attributed to the intended module
+| Level | Value |
+|---|---:|
+| `NOTSET` | 0 |
+| `DEBUG` | 10 |
+| `PERFORM` | 15 |
+| `INFO` | 20 |
+| `WARNING` | 30 |
+| `SEVERE` | 40 |
+| `FATAL` | 50 |
 
-If a module logs before initialization, the message may be attributed to the
-default fallback logger rather than the correct module.
+## Runtime relationship to `ngen`
 
-Example:
+When `ngen` integration is active, the runtime library does not own final output policy.
+Instead, the integration layer controls configuration loading, output location,
+and file naming while the runtime continues to attribute and forward messages.
 
-```cpp
-#include "ewts/module_constants.hpp"
-#define EWTS_ID ewts::modules::EWTS_ID_SFT
-#include "ewts/logger.hpp"
+## Environment configuration
 
-void bmi_model::Initialize()
-{
-    ewts::EwtsInit(EWTS_ID, true);
-    LOG(ewts::LogLevel::INFO, "Initializing Soil Freeze Thaw module");
-}
-```
-
----
-
-## Basic Usage
-
-Example usage in a C++ module:
-
-```cpp
-#include "ewts/module_constants.hpp"
-#define EWTS_ID ewts::modules::EWTS_ID_SFT
-#include "ewts/logger.hpp"
-
-int main()
-{
-    ewts::EwtsInit(EWTS_ID, false);
-
-    LOG(ewts::LogLevel::INFO, "Initializing Soil Freeze Thaw module");
-    LOG(ewts::LogLevel::DEBUG, "Debug information");
-
-    return 0;
-}
-```
-
-The `LOG(...)` macro routes messages to the module-specific logger.
-
----
-
-## Logger Initialization Model
-
-The C++ runtime uses a **lazy initialization pattern** internally:
-
-- the logger is created on first use
-- configuration is read from environment variables
-- the logger instance is stored in a registry keyed by module ID
-
-Even with lazy initialization, ngen modules should still call `EwtsInit(...)`
-during BMI `Initialize()` so the correct module is bound before the first log.
-
----
-
-## Example Log Output
-
-```text
-2026-03-12T12:41:03.123Z SFT      INFO    Initializing Soil Freeze Thaw module
-```
-
----
-
-## Log Levels
-
-```cpp
-ewts::LogLevel::DEBUG
-ewts::LogLevel::PERFORM
-ewts::LogLevel::INFO
-ewts::LogLevel::WARNING
-ewts::LogLevel::SEVERE
-ewts::LogLevel::FATAL
-```
-
-Example:
-
-```cpp
-LOG(ewts::LogLevel::WARNING, "Calibration parameter out of range");
-```
-
----
-
-## Environment Variables
-
-The same configuration variables are used across runtimes:
+The CPP runtime participates in the same environment-driven configuration model as
+other Runtime Libraries:
 
 | Variable | Purpose |
 |---|---|
-| `EWTS_ENABLED` | Enable logging |
-| `EWTS_LOG_LEVEL` | Default level |
-| `<MODULE>_LOGLEVEL` | Module override |
-| `EWTS_LOG_DIR` | Standalone logging directory |
-| `NGEN_RESULTS_DIR` | ngen results directory |
+| `NGEN_RESULTS_DIR` | `ngen` results directory |
+| `EWTS_ENABLED` | Enables or disables logging |
+| `<MODULE>_LOGLEVEL` | Per-module override |
+| `EWTS_LOG_DIR` | Standalone log directory |
 
----
+## MPI Behavior
 
-## MPI Support
-
-When running under MPI, the logger writes to rank-specific files such as:
+When running under MPI, each rank writes to a separate file, for example:
 
 ```text
-logs/ngen_rank_0.log
-logs/ngen_rank_1.log
+logs/ngen_mpi_process_0.log
+logs/ngen_mpi_process_1.log
 ```
 
-This avoids cross-rank file collisions.
+This prevents file I/O collisions across ranks.
+
+In split-by-module mode, the file stem changes but the per-rank rule remains.
 
 ---
 
-## ngen Integration
+## Standalone Mode
 
-When linked with the ngen integration library, logs are forwarded through the
-ngen bridge and written according to ngen runtime configuration.
+Outside the ngen results environment, standalone logging uses the following
+directory priority:
+
+1. `EWTS_LOG_DIR`
+2. `$HOME/run_logs`
+3. `./run_logs`
 
 ---
 
-## Runtime Safety
+## Related documentation
 
-The C++ runtime avoids:
-
-- process-global module identity
-- unsafe global string buffers
-- unsafe string concatenation
-
-Instead, it uses a **module-ID keyed logger registry** plus guarded writes.
+- user-facing overview: `docs/Runtime Libraries/cpp.md`
+- `ngen` implementation details: `integrations/ngen/README.md`
+- generated constants workflow: `tools/README.md`

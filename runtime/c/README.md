@@ -1,61 +1,32 @@
 # EWTS C Runtime
 
-The EWTS C runtime provides a lightweight logging API for C-based hydrologic
-components running within **ngen** or as standalone applications.
+This directory contains the developer-facing documentation for the EWTS C
+runtime library.
 
-It is designed to provide:
+The C runtime library provides a lightweight logging API for C-based hydrologic modules
+running either within `ngen` or as standalone applications.
 
-- module-scoped logging
-- consistent log formatting across languages
-- environment-driven configuration
-- optional integration with the ngen logging bridge
+## Directory role
 
-The runtime is implemented under:
+The implementation in `runtime/c/` provides:
 
-```text
-runtime/c/
-```
+- the C logging API and macros
+- generated C module keys and module constants
+- standalone runtime logging support
+- forwarding into the `ngen` bridge when that environment is active
 
-and installs headers under:
+Installed headers are typically exposed under `include/ewts/`.
 
-```text
-include/ewts/
-```
+## Design goals
 
----
+The C runtime library is designed to preserve:
 
-## Design Goals
+- module-scoped logger identity
+- consistency with the other EWTS language-specific Runtime Libraries
+- safe behavior in MPI environments
+- low-friction use from existing C modules
 
-The C runtime was designed with the following requirements:
-
-- **No module ID collisions** when multiple modules run in the same process
-- **Safe logging behavior in MPI environments**
-- **Minimal dependencies**
-- **Consistency with the C++, Fortran, and Python runtimes**
-
-Each module logger is keyed by a unique **EWTS module ID**.
-
----
-
-## Important: Initialization When Running with ngen
-
-When EWTS is used within **ngen**, it is important to initialize the module
-logger **before the first log message is written**.
-
-The recommended place to do this is inside the module’s **BMI `Initialize`**
-method.
-
-This ensures:
-
-- the correct **module ID** is bound to the logger
-- module-specific environment configuration such as `<MODULE>_LOGLEVEL` is applied
-- logging is routed correctly when the **ngen bridge** is active
-- log messages are attributed to the correct module from the first line
-
-If logging occurs **before** the module logger is initialized, messages may be
-written using the default fallback logger instead of the intended module ID.
-
-Example:
+## Typical usage
 
 ```c
 #include "ewts/module_constants.h"
@@ -65,41 +36,32 @@ Example:
 int Initialize(void)
 {
     EwtsInit(EWTS_ID, true);
-    LOG(INFO, "In CFE Initialize()");
+    LOG(INFO, "Initializing CFE");
     return 0;
 }
 ```
 
----
+The `EWTS_ID` macro binds convenience macros such as `LOG(...)` to a specific
+module identity.
 
-## Basic Usage
+## Initialization under `ngen`
 
-Typical usage in a C module:
+When a C module runs under `ngen`, initialize the module logger before the first
+log message. The best location is typically the BMI `Initialize` entry point.
 
-```c
-#include "ewts/module_constants.h"
-#define EWTS_ID EWTS_ID_CFE
-#include "ewts/logger.h"
+This ensures that:
 
-int main(void)
-{
-    EwtsInit(EWTS_ID, false);
+- the correct module ID is bound before logging starts
+- `<MODULE>_LOGLEVEL` overrides are applied correctly
+- the first log lines are attributed to the intended module
+- runtime messages route correctly when the bridge is active
 
-    LOG(INFO, "In CFE Initialize()");
-    LOG(DEBUG, "Debug information");
+If a module logs before initialization, messages may be attributed to the
+fallback logger rather than the intended module-specific logger.
 
-    return 0;
-}
-```
+## Log levels
 
-The `EWTS_ID` macro ensures that `Log(...)` and `LOG(...)` resolve to the
-module-specific logger.
-
----
-
-## Log Levels
-
-EWTS defines common log levels shared across all runtimes:
+The C runtime uses the same canonical EWTS levels as the rest of the framework:
 
 | Level | Value |
 |---|---:|
@@ -111,72 +73,36 @@ EWTS defines common log levels shared across all runtimes:
 | `SEVERE` | 40 |
 | `FATAL` | 50 |
 
-Example:
+## Environment configuration
 
-```c
-LOG(WARNING, "Parameter value outside expected range");
-```
-
----
-
-## Environment Configuration
-
-The runtime is controlled by environment variables:
+The C runtime participates in the same environment-driven configuration model as
+other Runtime Libraries:
 
 | Variable | Purpose |
 |---|---|
-| `EWTS_ENABLED` | Enable or disable logging |
-| `EWTS_LOG_LEVEL` | Default log level |
-| `<MODULE>_LOGLEVEL` | Module-specific override |
-| `EWTS_LOG_DIR` | Standalone logging directory |
-| `NGEN_RESULTS_DIR` | ngen results directory |
+| `NGEN_RESULTS_DIR` | `ngen` results directory |
+| `EWTS_ENABLED` | Enables or disables logging |
+| `<MODULE>_LOGLEVEL` | Per-module override |
+| `EWTS_LOG_DIR` | Standalone log directory |
 
----
+## MPI behavior
 
-## MPI Behavior
+EWTS writes one log file per MPI rank. It does not merge all ranks into a single
+shared file.
 
-When running within MPI, each rank writes to its own file, for example:
-
-```text
-logs/ngen_rank_0.log
-logs/ngen_rank_1.log
-logs/ngen_rank_2.log
-```
-
-This avoids file write contention and message interleaving across ranks.
-
----
-
-## Standalone Mode
-
-If the runtime is not running inside an ngen results environment, standalone
-logging uses the following directory priority:
-
-1. `EWTS_LOG_DIR`
-2. `$HOME/run_logs`
-3. `./run_logs`
-
----
-
-## Integration with ngen
-
-When the ngen bridge is linked, log messages are routed through:
+Examples under `ngen` include:
 
 ```text
-ewts_ngen_log
+logs/ngen_mpi_process_0.log
+logs/ngen_mpi_process_1.log
 ```
 
-This allows ngen to collect and manage log output consistently across modules.
+This prevents file I/O collisions across ranks.
 
----
+In split-by-module mode, the file stem changes but the per-rank rule remains.
 
-## Thread Safety and Runtime Model
+## Related documentation
 
-The C runtime avoids:
-
-- global unguarded string buffers
-- unsafe concatenation
-- process-global module identity
-
-Instead, module loggers are maintained in an internal registry keyed by
-**module ID**.
+- user-facing overview: `docs/runtimes/c.md`
+- framework-level configuration: `docs/architecture/configuration.md`
+- `ngen` integration details: `integrations/ngen/README.md`

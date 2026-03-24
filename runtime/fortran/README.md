@@ -148,11 +148,14 @@ Logging behavior is controlled by environment variables:
 When running under MPI, each rank writes to a separate file, for example:
 
 ```text
-logs/ngen_rank_0.log
-logs/ngen_rank_1.log
+logs/ngen_mpi_process_0.log
+logs/ngen_mpi_process_1.log
 ```
 
 This prevents file I/O collisions across ranks.
+
+
+In split-by-module mode, the file stem changes but the per-rank rule remains.
 
 ---
 
@@ -172,3 +175,85 @@ directory priority:
 When ngen integration is active, the Fortran runtime can route messages through
 the EWTS → ngen bridge so log output follows the same behavior as the C, C++,
 and Python runtimes.
+
+---
+
+# Backward Compatibility with Existing Modules
+
+Many existing Fortran modules use legacy log level constants such as:
+
+- `LOG_LEVEL_DEBUG`
+- `LOG_LEVEL_INFO`
+- `LOG_LEVEL_WARNING`
+- `LOG_LEVEL_ERROR`
+- `LOG_LEVEL_FATAL`
+
+To avoid modifying large amounts of existing code, modules can define lightweight wrappers or aliases that map legacy names to EWTS levels.
+
+---
+
+## Recommended Mapping
+
+Modules should map their legacy constants to EWTS equivalents:
+
+```fortran
+integer, parameter :: LOG_LEVEL_DEBUG   = EWTS_DEBUG
+integer, parameter :: LOG_LEVEL_INFO    = EWTS_INFO
+integer, parameter :: LOG_LEVEL_WARNING = EWTS_WARNING
+integer, parameter :: LOG_LEVEL_ERROR   = EWTS_SEVERE
+integer, parameter :: LOG_LEVEL_FATAL   = EWTS_FATAL
+```
+
+Optional (if used):
+
+```fortran
+integer, parameter :: LOG_LEVEL_PERFORM = EWTS_PERFORM
+```
+
+---
+
+## Rationale
+
+This approach:
+
+- Preserves existing module code without widespread edits
+- Maintains a **single source of truth** for log levels (EWTS runtime)
+- Ensures consistent behavior across:
+  - Fortran
+  - C / C++
+  - Python
+- Allows gradual migration to native EWTS constants if desired
+
+---
+
+## Usage Guidance
+
+- New code should prefer `EWTS_*` constants directly
+- Existing code may continue using `LOG_LEVEL_*` via mappings
+- Avoid redefining numeric values independently in modules
+
+---
+
+## Summary
+
+| Legacy Name        | EWTS Equivalent |
+|-------------------|-----------------|
+| LOG_LEVEL_DEBUG   | EWTS_DEBUG      |
+| LOG_LEVEL_INFO    | EWTS_INFO       |
+| LOG_LEVEL_WARNING | EWTS_WARNING    |
+| LOG_LEVEL_ERROR   | EWTS_SEVERE     |
+| LOG_LEVEL_FATAL   | EWTS_FATAL      |
+
+---
+
+## Notes
+
+- `EWTS_SEVERE` is equivalent to traditional `ERROR`
+- `EWTS_PERFORM` is an optional intermediate level for performance logging
+- All numeric values align with EWTS cross-language standards
+
+## Documentation
+
+For a user-focused overview and integration guidance, see:
+
+- MkDocs: `docs/runtimes/fortran.md`

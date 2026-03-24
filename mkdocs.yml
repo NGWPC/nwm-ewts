@@ -1,0 +1,39 @@
+site_name: EWTS Documentation
+site_description: Error and Warning Trapping System (EWTS) documentation
+site_url: https://ngwpc.github.io/nwm-ewts/
+repo_url: https://github.com/NGWPC/nwm-ewts
+repo_name: NGWPC/nwm-ewts
+edit_uri: ""
+site_dir: site
+strict: false
+
+theme:
+  name: readthedocs
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Overview: index.md
+      - Installation: installation.md
+      - Contributing: contributing.md
+  - Architecture:
+      - Logging Model: architecture/logging-model.md
+      - Configuration: architecture/configuration.md
+      - Generated Constants: architecture/generated-constants.md
+  - Integrations:
+      - ngen Integration: integrations/ngen.md
+  - Language-specific Runtime Libraries:
+      - C Runtime: runtimes/c.md
+      - C++ Runtime: runtimes/cpp.md
+      - Fortran Runtime: runtimes/fortran.md
+      - Python Runtime: runtimes/python.md
+  - Tools:
+      - Language Constants Generator: tools/generate-language-constants.md
