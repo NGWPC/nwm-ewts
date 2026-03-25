@@ -1,6 +1,6 @@
-# Fortran Runtime
+# Fortran Runtime Library
 
-The EWTS Fortran runtime provides logging support for Fortran-based hydrologic
+The EWTS Fortran runtime library provides logging support for Fortran-based hydrologic
 models running either within `ngen` or as standalone applications.
 
 ## Typical use

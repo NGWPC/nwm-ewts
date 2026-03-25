@@ -1,6 +1,7 @@
-# Python Runtime
+# Python Runtime Package
 
-The EWTS Python runtime provides the Python package implementation of EWTS.
+The EWTS Python runtime package provides logging support for Python-based hydrologic
+modules running either within `ngen` or as standalone applications.
 
 ## Package location
 
@@ -28,9 +29,9 @@ LOG.info("Initializing forcing workflow")
 
 ## Runtime behavior
 
-The Python runtime mirrors the same general EWTS behavior used by the native
-language-specific Runtime Libraries, including canonical log levels and support for `ngen` integration when
-that environment is active.
+The Python package mirrors the same general EWTS behavior used by the native
+language-specific Runtime Libraries, including canonical log levels and support 
+for `ngen` integration when that environment is active.
 
 ## Developer reference
 

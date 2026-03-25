@@ -30,10 +30,10 @@ nav:
       - Generated Constants: architecture/generated-constants.md
   - Integrations:
       - ngen Integration: integrations/ngen.md
-  - Language-specific Runtime Libraries:
-      - C Runtime: runtimes/c.md
-      - C++ Runtime: runtimes/cpp.md
-      - Fortran Runtime: runtimes/fortran.md
-      - Python Runtime: runtimes/python.md
+  - Language Runtime Libraries:
+      - C Runtime Library: runtimes/c.md
+      - C++ Runtime Library: runtimes/cpp.md
+      - Fortran Runtime Library: runtimes/fortran.md
+      - Python Runtime Package: runtimes/python.md
   - Tools:
       - Language Constants Generator: tools/generate-language-constants.md

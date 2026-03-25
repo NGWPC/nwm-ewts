@@ -1,6 +1,7 @@
-# C Runtime
+# C Runtime Library
 
-The EWTS C runtime provides logging support for C-based hydrologic modules.
+The EWTS C runtime library provides logging support for C-based hydrologic
+modules running either within `ngen` or as standalone applications.
 
 ## Typical use
 
