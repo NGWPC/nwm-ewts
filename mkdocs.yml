@@ -10,15 +10,6 @@ strict: false
 theme:
   name: readthedocs
 
-plugins:
-  - search
-  - mike
-
-extra:
-  version:
-    provider: mike
-    default: development
-    
 markdown_extensions:
   - admonition
   - toc:
