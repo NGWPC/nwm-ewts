@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ngwpc.github.io/nwm-ewts/installation/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Installation - EWTS Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Installation";
+        var mkdocs_page_input_path = "installation.md";
+        var mkdocs_page_url = "/nwm-ewts/installation/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> EWTS Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Installation</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#build-the-full-repository">Build the full repository</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#install">Install</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#build-runtime-libraries-only">Build Runtime Libraries only</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#editable-python-install">Editable Python install</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#build-a-python-distribution-manually">Build a Python distribution manually</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#run-python-tests">Run Python tests</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#next-steps">Next steps</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/logging-model/">Logging Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/configuration/">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/generated-constants/">Generated Constants</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/design-improvements/">Design improvements</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Integrations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../integrations/ngen/">ngen Integration</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Language Runtime Libraries</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/c/">C Runtime Library</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/cpp/">C++ Runtime Library</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/fortran/">Fortran Runtime Library</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/python/">Python Runtime Package</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Tools</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../tools/generate-language-constants/">Language Constants Generator</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">EWTS Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Getting Started</li>
+      <li class="breadcrumb-item active">Installation</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<p>This page describes common build and installation paths for EWTS.</p>
+<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
+<p>EWTS typically requires:</p>
+<ul>
+<li>CMake 3.16 or newer</li>
+<li>a C/C++ compiler</li>
+<li>a Fortran compiler when building the Fortran runtime</li>
+<li>Python 3 for the Python runtime and generator tooling</li>
+</ul>
+<h2 id="build-the-full-repository">Build the full repository<a class="headerlink" href="#build-the-full-repository" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">cmake -B cmake_buld -S . -DCMAKE_BUILD_TYPE=Release -DEWTS_WITH_NGEN=ON -DEWTS_BUILD_SHARED=ON
+cmake --build cmake_buld -j
+</code></pre>
+<p>This top-level build compiles the native language-specific Runtime Libraries and builds the Python package.</p>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">cmake --install cmake_buld --prefix /path/to/install
+</code></pre>
+<p>A typical install includes:</p>
+<ul>
+<li>native EWTS Runtime Libraries</li>
+<li>generated constants and headers</li>
+<li>the <code>ngen</code> integration library when enabled</li>
+<li>CMake package configuration files</li>
+<li>the Python wheel produced by the top-level build</li>
+</ul>
+<h2 id="build-runtime-libraries-only">Build Runtime Libraries only<a class="headerlink" href="#build-runtime-libraries-only" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">cmake -B cmake_buld -S runtime -DCMAKE_BUILD_TYPE=Release
+cmake --build cmake_buld -j
+</code></pre>
+<h2 id="editable-python-install">Editable Python install<a class="headerlink" href="#editable-python-install" title="Permanent link">&para;</a></h2>
+<p>For direct Python runtime development:</p>
+<pre><code class="language-bash">pip install -e runtime/python/ewts
+</code></pre>
+<h2 id="build-a-python-distribution-manually">Build a Python distribution manually<a class="headerlink" href="#build-a-python-distribution-manually" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">python -m build runtime/python/ewts
+</code></pre>
+<h2 id="run-python-tests">Run Python tests<a class="headerlink" href="#run-python-tests" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash">pip install pytest
+pip install -e runtime/python/ewts
+</code></pre>
+<pre><code class="language-bash">pytest runtime/python/ewts/tests
+</code></pre>
+<p>or</p>
+<pre><code class="language-bash">pytest
+</code></pre>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<p>After installation, continue with:</p>
+<ul>
+<li><a href="../architecture/logging-model/">Logging model</a></li>
+<li><a href="../architecture/configuration/">Configuration</a></li>
+<li><a href="../integrations/ngen/">ngen integration</a></li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../contributing/" class="btn btn-neutral float-right" title="Contributing">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> NGWPC/nwm-ewts</a>
+        </span>
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../contributing/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
