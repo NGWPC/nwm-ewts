@@ -7,12 +7,28 @@ and Python.
 
 ## What EWTS provides
 
+- centralized logging behavior when running under `ngen`
 - consistent log formatting across supported language-specific Runtime Libraries
 - stable module identifiers generated from a shared registry
-- centralized logging behavior when running under `ngen`
 - standalone runtime logging outside the `ngen` environment
 - per-rank log files for MPI execution
 - unified or split-by-module log output under `ngen`
+
+## Reliability and Design Improvements
+
+EWTS has been redesigned to address limitations observed in earlier logging
+implementations, particularly in multi-language and parallel environments.
+
+Key improvements include:
+
+- environment-driven configuration
+- safe, non-global logging state
+- MPI-aware logging with per-rank files
+- consistent behavior across all supported languages
+- centralized, reusable logging implementation
+
+For more details, see:
+- [Design Improvements](architecture/design-improvements.md)
 
 ## Choose the right documentation
 

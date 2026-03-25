@@ -28,6 +28,7 @@ nav:
       - Logging Model: architecture/logging-model.md
       - Configuration: architecture/configuration.md
       - Generated Constants: architecture/generated-constants.md
+      - Design improvements: architecture/design-improvements.md
   - Integrations:
       - ngen Integration: integrations/ngen.md
   - Language Runtime Libraries:
