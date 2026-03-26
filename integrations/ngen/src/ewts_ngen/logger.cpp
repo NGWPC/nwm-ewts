@@ -28,6 +28,7 @@ static const char* const kEnvResultsDir    = "NGEN_RESULTS_DIR";
 static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
 static const char* const kConfigFilename   = "ngen_logging.json";
 static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
+static const char* const kEnvEwtsLogLevel  = "EWTS_LOG_LEVEL";
 static const char* const kDefaultRunLogsDirName = "run_logs";
 static std::string       kLogRankLabel      = "mpi_process";
 
@@ -51,6 +52,14 @@ inline std::string ToLower(std::string s) {
     return s;
 }
 
+inline std::string TrimString(const std::string& str) {
+    const char* ws = " \t\n\r\f\v";
+    const size_t first = str.find_first_not_of(ws);
+    if (first == std::string::npos) return "";
+    const size_t last = str.find_last_not_of(ws);
+    return str.substr(first, last - first + 1);
+}
+
 inline LogLevel ClampCanonicalLevel(int v) {
     // Canonical allowed numeric levels: 10/20/30/40/50 (and 0).
     if (v <= 0)  return LogLevel::NOTSET;
@@ -60,6 +69,20 @@ inline LogLevel ClampCanonicalLevel(int v) {
     if (v <= 30) return LogLevel::WARNING;
     if (v <= 40) return LogLevel::SEVERE;
     return LogLevel::FATAL;
+}
+
+inline LogLevel ParseLevel(const std::string& value) {
+    std::string v = ToLower(TrimString(value));
+    if (v == "debug") return LogLevel::DEBUG;
+    if (v == "performance" || v == "perform") return LogLevel::PERFORM;
+    if (v == "info") return LogLevel::INFO;
+    if (v == "warning" || v == "warn") return LogLevel::WARNING;
+    if (v == "error" || v == "severe") return LogLevel::SEVERE;
+    if (v == "fatal" || v == "critical") return LogLevel::FATAL;
+    if (v == "notset" || v == "none") return LogLevel::NOTSET;
+    // Also accept "10"/"20"... (handled earlier), but in case:
+    if (IsDigitString(v)) return ClampCanonicalLevel(std::atoi(v.c_str()));
+    return LogLevel::INFO;
 }
 
 constexpr std::size_t EWTS_ID_WIDTH = 8;
@@ -82,6 +105,23 @@ inline bool should_log_line(std::string& s) {
         s.pop_back();
     }
     return s.find_first_not_of(" \t") != std::string::npos;
+}
+
+inline LogLevel get_default_log_level() {
+    const char* lvl = std::getenv(kEnvEwtsLogLevel);
+    if (lvl && std::strlen(lvl) > 0) {
+        std::cout << "EWTS Found env var " << kEnvEwtsLogLevel << "=" << lvl << std::endl;
+        fflush(stdout);
+        std::string val = TrimString(lvl);
+
+        if (IsDigitString(val)) {
+            return ClampCanonicalLevel(std::atoi(val.c_str()));
+        } else {
+            return ParseLevel(val);
+        }
+    }
+    std::cout << "EWTS env var " << kEnvEwtsLogLevel << " not found. Using fallback level INFO" << std::endl;
+    return LogLevel::INFO;
 }
 
 } // namespace
@@ -116,6 +156,8 @@ void Logger::InitIfNeeded() {
             loaded = ReadConfigFromResultsDir(ngenResultsDir);
         }
 
+        // Determine default log level based on env var or fallback default level
+        LogLevel defaultLogLevel = get_default_log_level();
         if (!loaded) {
             // Defaults when no results dir
             loggingEnabled = true;
@@ -124,11 +166,11 @@ void Logger::InitIfNeeded() {
             moduleLogLevels.clear();
             for (const auto& e : ewts_ngen::kModules) {
                 if (e.key && *e.key) {                 // non-null and not ""
-                    moduleLogLevels[std::string(e.key)] = LogLevel::INFO;
+                    moduleLogLevels[std::string(e.key)] = defaultLogLevel;
                 }
             }
-            moduleLogLevels[moduleKey] = LogLevel::INFO;
-            logLevel = LogLevel::INFO;
+            moduleLogLevels[moduleKey] = defaultLogLevel;
+            logLevel = defaultLogLevel;
         }
 
         ApplyEnvVars(true);
@@ -241,7 +283,7 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     }
 
     auto it = moduleLogLevels.find(moduleKey);
-    logLevel = (it != moduleLogLevels.end()) ? it->second : LogLevel::INFO;
+    logLevel = (it != moduleLogLevels.end()) ? it->second : get_default_log_level();
     return true;
 }
 
@@ -539,28 +581,6 @@ std::string Logger::LevelToFixedString(LogLevel level) {
     if (out.size() < 7) out.append(7 - out.size(), ' ');
     if (out.size() > 7) out = out.substr(0, 7);
     return out;
-}
-
-LogLevel Logger::ParseLevel(const std::string& value) {
-    std::string v = ToLower(TrimString(value));
-    if (v == "debug") return LogLevel::DEBUG;
-    if (v == "performance" || v == "perform") return LogLevel::PERFORM;
-    if (v == "info") return LogLevel::INFO;
-    if (v == "warning" || v == "warn") return LogLevel::WARNING;
-    if (v == "error" || v == "severe") return LogLevel::SEVERE;
-    if (v == "fatal" || v == "critical") return LogLevel::FATAL;
-    if (v == "notset" || v == "none") return LogLevel::NOTSET;
-    // Also accept "10"/"20"... (handled earlier), but in case:
-    if (IsDigitString(v)) return ClampCanonicalLevel(std::atoi(v.c_str()));
-    return LogLevel::INFO;
-}
-
-std::string Logger::TrimString(const std::string& str) {
-    const char* ws = " \t\n\r\f\v";
-    const size_t first = str.find_first_not_of(ws);
-    if (first == std::string::npos) return "";
-    const size_t last = str.find_last_not_of(ws);
-    return str.substr(first, last - first + 1);
 }
 
 std::string Logger::CreateTimestamp(bool append_ms, bool iso) {

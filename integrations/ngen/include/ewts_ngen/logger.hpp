@@ -68,8 +68,6 @@ class Logger {
     static std::string CreateTimestamp(bool append_ms = true, bool iso = true);
     static std::string CreateCompactTimestampUTC();  // YYYYMMDDTHHMMSS
     static std::string LevelToFixedString(LogLevel level);
-    static LogLevel ParseLevel(const std::string& value);
-    static std::string TrimString(const std::string& str);
 
     static bool FileExists(const std::string& path);
     static bool DirectoryExists(const std::string& path);
