@@ -77,6 +77,13 @@ inline bool mpi_is_initialized() {
     return flag != 0;
 }
 
+inline bool should_log_line(std::string& s) {
+    if (!s.empty() && s.back() == '\r') {
+        s.pop_back();
+    }
+    return s.find_first_not_of(" \t") != std::string::npos;
+}
+
 } // namespace
 
 Logger* Logger::GetLogger() {
@@ -488,6 +495,10 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
 
         if (it != splitLogFiles.end() && it->second.is_open() && it->second.good()) {
             while (std::getline(in, line)) {
+                // Ensures empty lines are not logged
+                if (!should_log_line(line)) {
+                    continue;
+                }
                 it->second << prefix << " " << line << std::endl;
             }
             it->second.flush();
@@ -497,11 +508,19 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
 
     if (logger->LogFileReady()) {
         while (std::getline(in, line)) {
+            // Ensures empty lines are not logged
+            if (!should_log_line(line)) {
+                continue;
+            }
             logger->logFile << prefix << " " << line << std::endl;
         }
         logger->logFile.flush();
     } else {
         while (std::getline(in, line)) {
+            // Ensures empty lines are not logged
+            if (!should_log_line(line)) {
+                continue;
+            }
             std::cout << prefix << " " << line << std::endl;
         }
         std::cout << std::flush;
