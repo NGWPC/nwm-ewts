@@ -136,7 +136,8 @@ Logging behavior is controlled by environment variables:
 | Variable | Purpose |
 |---|---|
 | `EWTS_ENABLED` | Enable logging |
-| `EWTS_LOG_LEVEL` | Default log level |
+| `EWTS_ENABLED` | Enables or disables logging |
+| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
 | `<MODULE>_LOGLEVEL` | Module override |
 | `EWTS_LOG_DIR` | Standalone logging directory |
 | `NGEN_RESULTS_DIR` | ngen results directory |

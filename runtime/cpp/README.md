@@ -63,6 +63,7 @@ other Runtime Libraries:
 |---|---|
 | `NGEN_RESULTS_DIR` | `ngen` results directory |
 | `EWTS_ENABLED` | Enables or disables logging |
+| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
 | `<MODULE>_LOGLEVEL` | Per-module override |
 | `EWTS_LOG_DIR` | Standalone log directory |
 
@@ -107,6 +108,6 @@ directory priority:
 
 ## Related documentation
 
-- user-facing overview: `docs/Runtime Libraries/cpp.md`
+- user-facing overview: `docs/runtimes/cpp.md`
 - `ngen` implementation details: `integrations/ngen/README.md`
 - generated constants workflow: `tools/README.md`

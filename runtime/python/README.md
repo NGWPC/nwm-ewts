@@ -92,6 +92,35 @@ When `ngen` integration is active, the Python runtime forwards messages through
 the same broader EWTS model used by the native Runtime Libraries. Outside `ngen`, the
 Python runtime handles standalone logging behavior directly.
 
+## Environment Configuration
+
+Logging behavior is controlled by environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `EWTS_ENABLED` | Enable logging |
+| `EWTS_ENABLED` | Enables or disables logging |
+| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
+| `<MODULE>_LOGLEVEL` | Module override |
+| `EWTS_LOG_DIR` | Standalone logging directory |
+| `NGEN_RESULTS_DIR` | ngen results directory |
+
+
+## MPI Behavior
+
+When running under MPI, each rank writes to a separate file, for example:
+
+```text
+logs/ngen_mpi_process_0.log
+logs/ngen_mpi_process_1.log
+```
+
+This prevents file I/O collisions across ranks.
+
+
+In split-by-module mode, the file stem changes but the per-rank rule remains.
+
+
 ## Tests
 
 Python tests are located under:
@@ -110,6 +139,6 @@ pytest runtime/python/ewts/tests
 
 ## Related documentation
 
-- user-facing overview: `docs/Runtime Libraries/python.md`
+- user-facing overview: `docs/runtimes/python.md`
 - framework installation: `docs/installation.md`
 - generator details: `tools/README.md`

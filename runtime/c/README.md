@@ -82,6 +82,7 @@ other Runtime Libraries:
 |---|---|
 | `NGEN_RESULTS_DIR` | `ngen` results directory |
 | `EWTS_ENABLED` | Enables or disables logging |
+| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
 | `<MODULE>_LOGLEVEL` | Per-module override |
 | `EWTS_LOG_DIR` | Standalone log directory |
 
