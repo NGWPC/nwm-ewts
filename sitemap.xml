@@ -2,54 +2,54 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/contributing/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/installation/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/architecture/configuration/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/architecture/design-improvements/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/architecture/generated-constants/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/architecture/logging-model/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/integrations/ngen/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/runtimes/c/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/runtimes/cpp/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/runtimes/fortran/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/runtimes/python/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
     <url>
          <loc>https://ngwpc.github.io/nwm-ewts/tools/generate-language-constants/</loc>
-         <lastmod>2026-03-25</lastmod>
+         <lastmod>2026-03-26</lastmod>
     </url>
 </urlset>
