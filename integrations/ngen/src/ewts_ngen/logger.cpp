@@ -110,8 +110,10 @@ inline bool should_log_line(std::string& s) {
 inline LogLevel get_default_log_level() {
     const char* lvl = std::getenv(kEnvEwtsLogLevel);
     if (lvl && std::strlen(lvl) > 0) {
-        std::cout << "EWTS Found env var " << kEnvEwtsLogLevel << "=" << lvl << std::endl;
-        fflush(stdout);
+        // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+        std::ostringstream oss;
+        oss << "EWTS Found env var " << kEnvEwtsLogLevel << "=" << lvl << '\n';
+        std::cout << oss.str() << std::flush;
         std::string val = TrimString(lvl);
 
         if (IsDigitString(val)) {
@@ -120,7 +122,11 @@ inline LogLevel get_default_log_level() {
             return ParseLevel(val);
         }
     }
-    std::cout << "EWTS env var " << kEnvEwtsLogLevel << " not found. Using fallback level INFO" << std::endl;
+    // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+    std::ostringstream oss;
+    oss << "EWTS env var " << kEnvEwtsLogLevel << " not found. Using fallback level INFO\n";
+    std::cout << oss.str() << std::flush;
+
     return LogLevel::INFO;
 }
 
@@ -177,12 +183,12 @@ void Logger::InitIfNeeded() {
 
         // Determine MPI rank (optional)
         if (mpi_is_initialized()) {
-            std::cout << "EWTS ngen running with MPI" << std::endl;
+            std::cout << "EWTS ngen running with MPI\n" << std::flush;
             int r = 0;
             MPI_Comm_rank(MPI_COMM_WORLD, &r);
             g_mpiRank = r;
         } else {
-            std::cout << "EWTS ngen running WITHOUT MPI" << std::endl;
+            std::cout << "EWTS ngen running WITHOUT MPI\n"  << std::flush;
             g_mpiRank = 0;
         }
 
@@ -224,16 +230,20 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
 
     std::string cfg;
     if (!FindConfigFileFromPath(resultsDir, cfg)) {
-        std::cout << "WARNING: EWTS config file " << kConfigFilename
+        // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+        std::ostringstream oss;
+        oss << "WARNING: EWTS config file " << kConfigFilename
                   << " NOT FOUND in " << resultsDir
-                  << " or any parent directory. Defaults will be used"
-                  << std::endl;
+                  << " or any parent directory. Defaults will be used\n";
+        std::cout << oss.str() << std::flush;
         // No config file: keep defaults, but still export log level environment variables.
         logLevel = moduleLogLevels[moduleKey];
         return false;
     }
-
-    std::cout << "EWTS config file " << cfg << std::endl;
+    // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+    std::ostringstream oss;
+    oss << "EWTS config file " << cfg << '\n';
+    std::cout << oss.str() << std::flush;
 
     boost::property_tree::ptree pt;
     try {
@@ -255,22 +265,31 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
         if (opt_logging_enabled) enabled = *opt_logging_enabled;
     }
     loggingEnabled = enabled;
-    std::cout << "EWTS logging " << (loggingEnabled ? "ENABLED" : "DISABLED") << std::endl;
+    // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+    oss.str("");     // clear the contents
+    oss.clear();     // reset stream state flags
+    oss << "EWTS logging " << (loggingEnabled ? "ENABLED" : "DISABLED") << '\n';
+    std::cout << oss.str() << std::flush;
 
     // split_logs_by_module
     auto opt_split = pt.get_optional<bool>("split_logs_by_module");
     if (opt_split) splitLogsByModule = *opt_split;
-    std::cout << "EWTS logging to "
+    oss.str("");     // clear the contents
+    oss.clear();     // reset stream state flags
+    oss << "EWTS logging to "
               << (splitLogsByModule ? "<MODULE>" : "a UNIFIED ngen")
-              << " per rank file" << std::endl;
+              << " per rank file\n";
+    std::cout << oss.str() << std::flush;
 
     auto modules_child = pt.get_child_optional("modules");
     if (modules_child) {
         for (const auto& kv : *modules_child) {
             const std::string key = TrimString(kv.first);
             const std::string raw = TrimString(kv.second.get_value<std::string>());
-            std::cout << "EWTS " << key << " log level read by ngen "
-                      << ToUpper(raw) << std::endl;
+            oss.str("");     // clear the contents
+            oss.clear();     // reset stream state flags
+            oss << "EWTS " << key << " log level read by ngen " << ToUpper(raw) << '\n';
+            std::cout << oss.str() << std::flush;
 
             LogLevel lvl = LogLevel::INFO;
             if (IsDigitString(raw)) {
@@ -310,8 +329,11 @@ void Logger::ApplyEnvVars(bool set) {
 #if !defined(_WIN32)
         ::setenv(env_name.c_str(), env_val.c_str(), 1);
 #endif
-        std::cout << "EWTS " << env_name << " set to "
-                  << LevelToFixedString(lvl) << std::endl;
+        // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+        std::ostringstream oss;
+        oss << "EWTS " << env_name << " set to " << LevelToFixedString(lvl) << '\n';
+        std::cout << oss.str() << std::flush;
+
     }
 }
 
@@ -343,7 +365,11 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         // In split mode, the destination file is selected per log call from the
         // incoming EWTS id, so only the directory is initialized here.
         logFilePath.clear();
-        std::cout << "EWTS split log files under " << logFileDir << std::endl;
+
+        // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+        std::ostringstream oss;
+        oss << "EWTS split log files under " << logFileDir << '\n';
+        std::cout << oss.str() << std::flush;
         return;
     }
 
@@ -367,7 +393,10 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     // Open file (append)
     logFile.open(logFilePath.c_str(), std::ios::out | std::ios::app);
 
-    std::cout << "EWTS log file " << logFilePath << std::endl;
+    // Build string to minimize risk of buffer interleaving during mpi runs
+    std::ostringstream oss;
+    oss << "EWTS log file " << logFilePath << '\n';
+    std::cout << oss.str() << std::flush;
 }
 
 bool Logger::LogFileReady() const {
@@ -531,7 +560,11 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
 
             std::ofstream& splitFile = splitLogFiles[moduleName];
             splitFile.open(path.c_str(), std::ios::out | std::ios::app);
-            std::cout << "EWTS split log file " << path << std::endl;
+
+            // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+            std::ostringstream oss;
+            oss << "EWTS split log file " << path << '\n';
+            std::cout << oss.str() << std::flush;
             it = splitLogFiles.find(moduleName);
         }
 
@@ -558,14 +591,18 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
         }
         logger->logFile.flush();
     } else {
+        // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+        std::ostringstream oss;
         while (std::getline(in, line)) {
             // Ensures empty lines are not logged
             if (!should_log_line(line)) {
                 continue;
             }
-            std::cout << prefix << " " << line << std::endl;
+            oss.str("");     // clear the contents
+            oss.clear();     // reset stream state flags
+            oss << prefix << " " << line << '\n';
+            std::cout << oss.str() << std::flush;
         }
-        std::cout << std::flush;
     }
 }
 
