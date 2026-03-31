@@ -31,6 +31,7 @@ enum class LogLevel : int {
 class Logger {
   public:
     static Logger* GetLogger();
+    static int g_mpiRank;
 
     // Backwards-compatible overloads
     static void Log(const std::string& message, LogLevel messageLevel = LogLevel::INFO);
@@ -41,6 +42,8 @@ class Logger {
     static void Log(const std::string& moduleName, LogLevel messageLevel, const std::string& message);
     static void Log(const std::string& moduleName, LogLevel messageLevel, const char* message, ...);
 
+    // Look into deleting this in the future. This was kept for backward compatability but
+    // is a poor desigh. The throw is misleading from here.
     static inline void LogAndThrow(const std::string& message) {
         Log(message, LogLevel::SEVERE);
         throw std::runtime_error(message);
@@ -101,9 +104,6 @@ class Logger {
 
     // environment
     
-
-    // mpi
-    int g_mpiRank = 0;
 };
 
 // Placed here to ensure the class is declared before setting this preprocessor symbol

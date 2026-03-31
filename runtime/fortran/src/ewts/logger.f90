@@ -13,6 +13,10 @@ module logger
   integer, parameter, public :: EWTS_SEVERE  = 40
   integer, parameter, public :: EWTS_FATAL   = 50
 
+  character(len=64) :: prefix
+  character(len=16) :: val
+  integer :: g_mpiRank, status
+
   type :: logger_state
     character(len=64)   :: ewts_id = "EWTS"
     character(len=8)    :: ewts_id_padded = "EWTS    "
@@ -297,6 +301,15 @@ contains
     if (g_loggers(idx)%initialized) return
     g_loggers(idx)%initialized = .true.
 
+    call get_environment_variable("EWTS_RANK", val, status=status)
+
+    if (status == 0) then
+        read(val, *) g_mpiRank
+        write(prefix, '(A,I0,A)') "[rank ", g_mpiRank, "] EWTS"
+    else
+        prefix = "EWTS"
+    end if
+
     lenv = 0
     call get_environment_variable("EWTS_ENABLED", length=lenv)
     if (lenv > 0) then
@@ -307,9 +320,9 @@ contains
     end if
 
     if (g_loggers(idx)%enabled) then
-      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging ENABLED"
+      write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " logging ENABLED"
     else
-      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging DISABLED"
+      write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " logging DISABLED"
     end if
 
     key = env_key_for(g_loggers(idx)%ewts_id)
@@ -318,10 +331,10 @@ contains
     if (lenv > 0) then
       call get_environment_variable(trim(key), v)
       g_loggers(idx)%level_min = parse_level(v)
-      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " log level from env var " // trim(key) // " is " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
+      write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " log level from env var " // trim(key) // " is " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
     else
       g_loggers(idx)%level_min = EWTS_NOTSET
-      write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " log level env var " // trim(key) // " not found"
+      write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " log level env var " // trim(key) // " not found"
     end if
 
     if (g_loggers(idx)%level_min == EWTS_NOTSET) then
@@ -330,20 +343,20 @@ contains
       if (lenv > 0) then
         call get_environment_variable("EWTS_LOG_LEVEL", v)
         g_loggers(idx)%level_min = parse_level(v)
-        write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " global log level from env var is " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
+        write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " global log level from env var is " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
       else
         g_loggers(idx)%level_min = EWTS_INFO
-        write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " using default log level " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
+        write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " using default log level " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
       end if
       if (g_loggers(idx)%level_min == EWTS_NOTSET) g_loggers(idx)%level_min = EWTS_INFO
     end if
 
-    write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " log level set to " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
+    write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " log level set to " // trim(ewts_log_level_name(g_loggers(idx)%level_min))
 
 #ifdef EWTS_HAVE_NGEN_BRIDGE
-    write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " using ngen for logging"
+    write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " using ngen for logging"
 #else
-    write(*,'(A)') "EWTS " // trim(g_loggers(idx)%ewts_id) // " logging standalone"
+    write(*,'(A)') trim(prefix)  // " " //  trim(g_loggers(idx)%ewts_id) // " logging standalone"
 #endif
 
     flush(output_unit)

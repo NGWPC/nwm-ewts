@@ -14,6 +14,7 @@ class EwtsConfig:
     ngen_active: bool
     log_dir: Path
     default_level: int
+    mpi_rank: int
 
 def _env_bool(name: str, default: bool = True) -> bool:
     v = getenv_any(name, None)
@@ -67,10 +68,20 @@ def get_level_for_ewts_id(ewts_id: str) -> int:
         return parsed
     return get_default_level()
 
+def get_mpi_rank() -> tuple[int, bool]:
+    v = getenv_any("EWTS_RANK", "").strip()
+    if not v:
+        return -1
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return -1
+
 def load_config(ewts_id: str) -> EwtsConfig:
     ngen = is_ngen_active()
     enabled = _env_bool("EWTS_ENABLED", True)
     # Only used for standalone; safe to compute always.
     log_dir = get_log_dir()
     default_level = get_level_for_ewts_id(ewts_id)
-    return EwtsConfig(ngen_active=ngen, enabled=enabled, log_dir=log_dir, default_level=default_level)
+    mpi_rank = get_mpi_rank()
+    return EwtsConfig(ngen_active=ngen, enabled=enabled, log_dir=log_dir, default_level=default_level, mpi_rank=mpi_rank)

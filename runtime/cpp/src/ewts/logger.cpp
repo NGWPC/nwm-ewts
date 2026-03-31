@@ -29,6 +29,8 @@ static constexpr const char* EV_EWTS_ENABLED     = "EWTS_ENABLED";
 static constexpr const char* EV_EWTS_LOG_DIR     = "EWTS_LOG_DIR";
 static constexpr const char* EV_EWTS_LOG_LEVEL   = "EWTS_LOG_LEVEL";
 
+static int  g_mpiRank = -1;
+
 using ewts_ngen_log_fn = void(*)(const char*, int, const char*);
 
 static std::mutex g_registry_mtx;
@@ -160,14 +162,35 @@ void Logger::init_once() {
     if (initialized_) return;
     initialized_ = true;
 
+    g_mpiRank  = -1;
+    const char* r = std::getenv("EWTS_RANK");
+    if (r && *r) {
+        char* end = nullptr;
+        long val = std::strtol(r, &end, 10);
+        if (end && *end == '\0' && val >= 0) {
+            g_mpiRank = static_cast<int>(val);
+        }
+    }
+
+    std::string prefix = (g_mpiRank >= 0)
+        ? "[rank " + std::to_string(g_mpiRank) + "] EWTS "
+        : "EWTS ";
+
     enabled_ = parse_enabled(std::getenv(EV_EWTS_ENABLED));
-    std::cout << "EWTS " << ewts_id_ << " logging is "
-              << (enabled_ ? "ENABLED" : "DISABLED") << std::endl;
+
+    // Build string first to minimize risk of stdout buffer interleaving during mpi runs
+    std::ostringstream oss;
+    oss << prefix << ewts_id_ << " logging is "<< (enabled_ ? "ENABLED" : "DISABLED") << std::endl;
+    std::cout << oss.str() << std::flush;
 
     auto key = module_loglevel_env();
     auto lvl = parse_level(std::getenv(key.c_str()));
-    std::cout << "EWTS " << ewts_id_ << " log level from env var "
-              << key << " is " << level_name_padded(lvl) << std::endl;
+
+    oss.str("");     // clear the contents
+    oss.clear();     // reset stream state flags
+    oss << prefix << ewts_id_ << " log level from env var "
+        << key << " is " << level_name_padded(lvl) << std::endl;
+    std::cout << oss.str() << std::flush;
 
     if (static_cast<int>(lvl) != 0) level_ = lvl;
     else {
@@ -175,10 +198,20 @@ void Logger::init_once() {
         level_ = (static_cast<int>(lvl) != 0) ? lvl : LogLevel::INFO;
     }
 
+    oss.str("");
+    oss.clear();
+    oss << prefix << ewts_id_ << " log level set to "
+        << level_name_padded(level_) << std::endl;
+    std::cout << oss.str() << std::flush;
+
     pad_id();
 
-    if (have_ngen_bridge())
-        std::cout << "EWTS " << ewts_id_ << " using ngen for logging" << std::endl;
+    if (have_ngen_bridge()) {
+        oss.str("");     // clear the contents
+        oss.clear();     // reset stream state flags
+        oss << prefix << ewts_id_ << " using ngen for logging" << std::endl;
+        std::cout << oss.str() << std::flush;
+    }
     else
         std::cout << "EWTS " << ewts_id_ << " logging standalone" << std::endl;
 }

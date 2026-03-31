@@ -23,6 +23,8 @@ void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 #define EV_EWTS_LOG_DIR     "EWTS_LOG_DIR"
 #define EV_EWTS_LOG_LEVEL   "EWTS_LOG_LEVEL"
 
+static int g_mpiRank = -1;
+
 typedef struct ewts_logger_state {
     char ewts_id[64];
     char ewts_id_padded[9];
@@ -279,35 +281,46 @@ static void init_logger_state(ewts_logger_state* st) {
     if (st->initialized) return;
     st->initialized = 1;
 
+    const char* val = getenv("EWTS_RANK");
+    g_mpiRank = val ? atoi(val) : -1;
+    
+    char prefix[64];
+
+    if (g_mpiRank >= 0) {
+        snprintf(prefix, sizeof(prefix), "[rank %d] EWTS", g_mpiRank);
+    } else {
+        snprintf(prefix, sizeof(prefix), "EWTS");
+    }
+
     pad_ewts_id(st);
 
     st->enabled = parse_enabled(getenv(EV_EWTS_ENABLED));
-    fprintf(stdout, "EWTS %s logging is %s\n", st->ewts_id, st->enabled ? "ENABLED" : "DISABLED");
+    fprintf(stdout, "%s %s logging is %s\n", prefix, st->ewts_id, st->enabled ? "ENABLED" : "DISABLED");
     fflush(stdout);
 
     build_module_loglevel_env(st->ewts_id, key, sizeof(key));
     lvl = parse_level(getenv(key));
-    fprintf(stdout, "EWTS %s log level from env var %s is %s\n",
-            st->ewts_id, key, level_name_padded(lvl));
+    fprintf(stdout, "%s %s log level from env var %s is %s\n",
+            prefix, st->ewts_id, key, level_name_padded(lvl));
     fflush(stdout);
 
     if ((int)lvl != NOTSET) {
         st->level = lvl;
-        fprintf(stdout, "EWTS %s log level set to %s\n",
-                st->ewts_id, level_name_padded(st->level));
+        fprintf(stdout, "%s %s log level set to %s\n",
+                prefix, st->ewts_id, level_name_padded(st->level));
         fflush(stdout);
     } else {
         lvl = parse_level(getenv(EV_EWTS_LOG_LEVEL));
         st->level = ((int)lvl != NOTSET) ? lvl : INFO;
-        fprintf(stdout, "EWTS %s using default log level = %s\n",
-                st->ewts_id, level_name_padded(st->level));
+        fprintf(stdout, "%s %s using default log level = %s\n",
+                prefix, st->ewts_id, level_name_padded(st->level));
         fflush(stdout);
     }
 
     if (st->use_ngen && is_ngen_active() && ewts_ngen_log) {
-        fprintf(stdout, "EWTS %s using ngen for logging\n", st->ewts_id);
+        fprintf(stdout, "%s %s using ngen for logging\n", prefix, st->ewts_id);
     } else {
-        fprintf(stdout, "EWTS %s logging standalone\n", st->ewts_id);
+        fprintf(stdout, "%s %s logging standalone\n", prefix, st->ewts_id);
     }
     fflush(stdout);
 }

@@ -144,16 +144,19 @@ class EwtsLogger:
     def _init(self) -> None:
         cfg = load_config(self.ewts_id)
         self._min_level = cfg.default_level
+        self._mpi_rank = cfg.mpi_rank
+
+        self._prefix = f"[rank {self._mpi_rank}] EWTS" if self._mpi_rank >= 0 else "EWTS"
 
         if not cfg.enabled:
             if self.ewts_id not in _init_printed:
-                print(f"EWTS {self.ewts_id} logging is DISABLED", flush=True)
+                print(f"{self._prefix} {self.ewts_id} logging is DISABLED", flush=True)
             self._min_level = 999
             _init_printed.add(self.ewts_id)
             return
 
         if self.ewts_id not in _init_printed:
-            print(f"EWTS {self.ewts_id} logging is ENABLED", flush=True)
+            print(f"{self._prefix} {self.ewts_id} logging is ENABLED", flush=True)
 
             env_key = f"{self.ewts_id}_LOGLEVEL"
             env_val = getenv_any(env_key, "").strip()
@@ -163,28 +166,28 @@ class EwtsLogger:
                     env_level_name = _level_name(int(env_val))
                 else:
                     env_level_name = env_val.upper()
-                print(f"EWTS {self.ewts_id} log level from env var {env_key} is {env_level_name}", flush=True)
+                print(f"{self._prefix} {self.ewts_id} log level from env var {env_key} is {env_level_name}", flush=True)
             else:
-                print(f"EWTS {self.ewts_id} log level from default EWTS_LOG_LEVEL", flush=True)
+                print(f"{self._prefix} {self.ewts_id} log level from default EWTS_LOG_LEVEL", flush=True)
 
-            print(f"EWTS {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
+            print(f"{self._prefix} {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
 
         if cfg.ngen_active:
             self._bridge = _NgenBridge.try_load()
             # If the bridge isn't available, we still fall back to standalone.
             if self._bridge is not None:
                 if self.ewts_id not in _init_printed:
-                    print(f"EWTS {self.ewts_id} using ngen for logging", flush=True)
+                    print(f"{self._prefix} {self.ewts_id} using ngen for logging", flush=True)
                 _init_printed.add(self.ewts_id)
                 return
 
         # Standalone file sink
         if self.ewts_id not in _init_printed:
-            print(f"EWTS {self.ewts_id} using standalone file logging", flush=True)
+            print(f"{self._prefix} {self.ewts_id} using standalone file logging", flush=True)
         self._log_path = make_log_path(self.ewts_id, cfg.log_dir)
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
         if self.ewts_id not in _init_printed:
-            print(f"EWTS {self.ewts_id} log file: {self._log_path}", flush=True)
+            print(f"{self._prefix} {self.ewts_id} log file: {self._log_path}", flush=True)
         _init_printed.add(self.ewts_id)
 
     @staticmethod
@@ -241,7 +244,7 @@ class EwtsLogger:
     def set_level_from_env(self) -> None:
         self._min_level = get_level_for_ewts_id(self.ewts_id)
         self._logger.setLevel(self._min_level)
-        print(f"EWTS {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
+        print(f"{self._prefix} {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
 
     def log(self, level: int, msg, *args, exc_info=None, **kwargs) -> None:
         text = self._format_msg(msg, args)
