@@ -135,12 +135,12 @@ Logging behavior is controlled by environment variables:
 
 | Variable | Purpose |
 |---|---|
-| `EWTS_ENABLED` | Enable logging |
+| `NGEN_RESULTS_DIR` | `ngen` results directory |
 | `EWTS_ENABLED` | Enables or disables logging |
 | `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
-| `<MODULE>_LOGLEVEL` | Module override |
-| `EWTS_LOG_DIR` | Standalone logging directory |
-| `NGEN_RESULTS_DIR` | ngen results directory |
+| `EWTS_RANK` | MPI rank (set by ngen) for submodules to read; if unset, assumes non-MPI |
+| `<MODULE>_LOGLEVEL` | Per-module override |
+| `EWTS_LOG_DIR` | Standalone log directory |
 
 ---
 

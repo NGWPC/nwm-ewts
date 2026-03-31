@@ -43,7 +43,7 @@ class Logger {
     static void Log(const std::string& moduleName, LogLevel messageLevel, const char* message, ...);
 
     // Look into deleting this in the future. This was kept for backward compatability but
-    // is a poor desigh. The throw is misleading from here.
+    // is a poor design. The throw is misleading from here.
     static inline void LogAndThrow(const std::string& message) {
         Log(message, LogLevel::SEVERE);
         throw std::runtime_error(message);

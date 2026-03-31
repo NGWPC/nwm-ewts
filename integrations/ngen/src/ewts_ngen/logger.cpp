@@ -145,7 +145,7 @@ void Logger::InitIfNeeded() {
     static std::once_flag once;
     std::call_once(once, [this]() {
 
-                // Determine MPI rank (optional)
+        // Determine MPI rank (optional)
         if (mpi_is_initialized()) {
             int r = 0;
             MPI_Comm_rank(MPI_COMM_WORLD, &r);

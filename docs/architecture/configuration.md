@@ -10,6 +10,7 @@ EWTS is configured through environment variables and, when running under
 | `NGEN_RESULTS_DIR` | `ngen` results directory and home of `ngen_logging.json` |
 | `EWTS_ENABLED` | Enables or disables logging |
 | `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
+| `EWTS_RANK` | MPI rank (set by ngen) for submodules to read; if unset, assumes non-MPI |
 | `<MODULE>_LOGLEVEL` | Per-module log-level override |
 | `EWTS_LOG_DIR` | Standalone output directory |
 
