@@ -998,6 +998,29 @@ def _generate_python_log_levels(out_py: Path, *, levels_meta: dict) -> None:
                     if val == level:
                         return name
                 return "{DEFAULT_LEVEL_NAME}"
+
+            def parse_log_level(level: str | int | None, default: int = LEVELS["{DEFAULT_LEVEL_NAME}"]) -> int:
+                \"\"\"
+                Normalize a log level into an EWTS integer level.
+
+                Accepts:
+                  - int: returned as-is
+                  - str: case-insensitive EWTS level name
+                  - None: returns default
+
+                NOTE:
+                  - No aliases are supported.
+                \"\"\"
+                if level is None:
+                    return default
+
+                if isinstance(level, int):
+                    return level
+
+                if isinstance(level, str):
+                    return LEVELS.get(level.strip().upper(), default)
+
+                return default
         """),
     ]
     _write_text(out_py, "".join(lines))
