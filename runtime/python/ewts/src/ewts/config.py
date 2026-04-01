@@ -1,12 +1,48 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Optional
 
 from .helper import getenv_any
 from .log_levels import LEVELS
 
 _DEFAULT_LOG_DIR_NAME = "run_logs"
+
+_RUNTIME_OVERRIDES: dict[str, "EwtsRuntimeOverride"] = {}
+
+@dataclass
+class EwtsRuntimeOverride:
+    enabled: Optional[bool] = None
+    default_level: Optional[int] = None
+    log_dir: Optional[Path] = None
+    log_file_name: Optional[str] = None
+    ngen_active: Optional[bool] = None
+
+
+def set_runtime_override(
+    ewts_id: str,
+    *,
+    enabled: bool | None = None,
+    default_level: int | None = None,
+    log_dir: str | Path | None = None,
+    log_file_name: str | None = None,
+    ngen_active: bool | None = None,
+) -> None:
+    _RUNTIME_OVERRIDES[ewts_id.upper()] = EwtsRuntimeOverride(
+        enabled=enabled,
+        default_level=default_level,
+        log_dir=Path(log_dir).expanduser() if log_dir is not None else None,
+        log_file_name=log_file_name,
+        ngen_active=ngen_active,
+    )
+
+
+def clear_runtime_override(ewts_id: str) -> None:
+    _RUNTIME_OVERRIDES.pop(ewts_id.upper(), None)
+
+def get_runtime_override(ewts_id: str) -> EwtsRuntimeOverride | None:
+    return _RUNTIME_OVERRIDES.get(ewts_id.upper())
 
 @dataclass(frozen=True)
 class EwtsConfig:
@@ -15,6 +51,7 @@ class EwtsConfig:
     log_dir: Path
     default_level: int
     mpi_rank: int
+    log_file_name: str | None = None 
 
 def _env_bool(name: str, default: bool = True) -> bool:
     v = getenv_any(name, None)
@@ -42,15 +79,7 @@ def _parse_level_value(v: str) -> int | None:
             return int(s)
         except Exception:
             return None
-    # named
     key = s.upper()
-    # accept common aliases
-    if key == "WARN":
-        key = "WARNING"
-    if key == "CRITICAL":
-        key = "FATAL"
-    if key == "NONE":
-        key = "NOTSET"
     return LEVELS.get(key)
 
 def get_default_level() -> int:
@@ -68,7 +97,7 @@ def get_level_for_ewts_id(ewts_id: str) -> int:
         return parsed
     return get_default_level()
 
-def get_mpi_rank() -> tuple[int, bool]:
+def get_mpi_rank() -> int:
     v = getenv_any("EWTS_RANK", "").strip()
     if not v:
         return -1
@@ -78,10 +107,34 @@ def get_mpi_rank() -> tuple[int, bool]:
         return -1
 
 def load_config(ewts_id: str) -> EwtsConfig:
-    ngen = is_ngen_active()
-    enabled = _env_bool("EWTS_ENABLED", True)
-    # Only used for standalone; safe to compute always.
-    log_dir = get_log_dir()
-    default_level = get_level_for_ewts_id(ewts_id)
-    mpi_rank = get_mpi_rank()
-    return EwtsConfig(ngen_active=ngen, enabled=enabled, log_dir=log_dir, default_level=default_level, mpi_rank=mpi_rank)
+    ewts_id = ewts_id.upper()
+
+    cfg = EwtsConfig(
+        ngen_active=is_ngen_active(),
+        enabled=_env_bool("EWTS_ENABLED", True),
+        # Only used for standalone; safe to compute always.
+        log_dir=get_log_dir(),
+        default_level=get_level_for_ewts_id(ewts_id),
+        mpi_rank=get_mpi_rank(),
+    )
+
+    ov = get_runtime_override(ewts_id)
+    if ov is None:
+        return cfg
+
+    updates = {}
+    if ov.ngen_active is not None:
+        updates["ngen_active"] = ov.ngen_active
+    if ov.enabled is not None:
+        updates["enabled"] = ov.enabled
+    if ov.log_dir is not None:
+        updates["log_dir"] = ov.log_dir
+    if ov.log_file_name is not None:
+        updates["log_file_name"] = ov.log_file_name
+    if ov.default_level is not None:
+        updates["default_level"] = ov.default_level
+
+    if updates:
+        cfg = replace(cfg, **updates)
+
+    return cfg

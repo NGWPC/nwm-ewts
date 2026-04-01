@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .config import get_level_for_ewts_id, load_config
+from .config import get_level_for_ewts_id, load_config, set_runtime_override
 from .formatter import format_prefix, split_lines
 from .helper import getenv_any
+from .log_levels import parse_log_level
 from .paths import make_log_path
 
 # Register EWTS PERFORM level with Python logging
@@ -184,7 +185,12 @@ class EwtsLogger:
         # Standalone file sink
         if self.ewts_id not in _init_printed:
             print(f"{self._prefix} {self.ewts_id} using standalone file logging", flush=True)
-        self._log_path = make_log_path(self.ewts_id, cfg.log_dir)
+
+        if cfg.log_file_name:
+            self._log_path = Path(cfg.log_dir) / cfg.log_file_name
+        else:
+            self._log_path = make_log_path(self.ewts_id, cfg.log_dir)
+
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
         if self.ewts_id not in _init_printed:
             print(f"{self._prefix} {self.ewts_id} log file: {self._log_path}", flush=True)
@@ -402,3 +408,38 @@ def bind_logger(module_key_or_ewts_id: str) -> EwtsLogger:
     Safe to call multiple times; it returns the same bound logger per process.
     """
     return get_logger(module_key_or_ewts_id).bind()
+
+
+def setup_logger(
+    module_key_or_ewts_id: str,
+    *,
+    level: str | int | None = None,
+    log_dir: str | Path | None = None,
+    log_file_name: str | None = None,
+    use_ngen_env: bool | None = None,
+    enabled: bool | None = None,
+    bind_now: bool = False,
+) -> BoundEwtsLoggerProxy | EwtsLogger:
+    """
+    Configure runtime overrides for an EWTS logger.
+
+    This does not have to bind immediately. For ngen/BMI use, callers can
+    leave bind=False and explicitly call bind_logger() later during init.
+    For standalone manager scripts, bind=True is convenient.
+    """
+    ewts_id = _resolve_ewts_id(module_key_or_ewts_id)
+    parsed_level = parse_log_level(level) if level is not None else None
+
+    set_runtime_override(
+        ewts_id,
+        ngen_active=use_ngen_env,
+        enabled=enabled,
+        log_dir=log_dir,
+        default_level=parsed_level,
+        log_file_name=log_file_name,
+    )
+
+    if bind_now:
+        return bind_logger(ewts_id)
+
+    return get_logger(ewts_id)
