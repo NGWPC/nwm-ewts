@@ -76,3 +76,19 @@ modules:
     ewts_id: SFINCS
     language: fortran
     description: "Super-fast modelling of dynamic compound flooding in Coastal Systems"
+  - key: msw-mgr
+    ewts_id: MSWMGR
+    language: python
+    description: "Model Setup Workflow Component"
+  - key: cal-mgr
+    ewts_id: CALMGR
+    language: python
+    description: "Calibration Manager Component"
+  - key: eval-mgr
+    ewts_id: EVALMGR
+    language: python
+    description: "Evaluation Manager Component"
+  - key: fcst-mgr
+    ewts_id: FCSTMGR
+    language: python
+    description: "Forecast Manager Component"
