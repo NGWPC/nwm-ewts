@@ -17,7 +17,7 @@ class EwtsRuntimeOverride:
     default_level: Optional[int] = None
     log_dir: Optional[Path] = None
     log_file_name: Optional[str] = None
-    ngen_active: Optional[bool] = None
+    running_in_ngen: Optional[bool] = None
 
 
 def set_runtime_override(
@@ -27,14 +27,14 @@ def set_runtime_override(
     default_level: int | None = None,
     log_dir: str | Path | None = None,
     log_file_name: str | None = None,
-    ngen_active: bool | None = None,
+    running_in_ngen: bool | None = None,
 ) -> None:
     _RUNTIME_OVERRIDES[ewts_id.upper()] = EwtsRuntimeOverride(
         enabled=enabled,
         default_level=default_level,
         log_dir=Path(log_dir).expanduser() if log_dir is not None else None,
         log_file_name=log_file_name,
-        ngen_active=ngen_active,
+        running_in_ngen=running_in_ngen,
     )
 
 
@@ -47,7 +47,7 @@ def get_runtime_override(ewts_id: str) -> EwtsRuntimeOverride | None:
 @dataclass(frozen=True)
 class EwtsConfig:
     enabled: bool
-    ngen_active: bool
+    running_in_ngen: bool
     log_dir: Path
     default_level: int
     mpi_rank: int
@@ -110,7 +110,7 @@ def load_config(ewts_id: str) -> EwtsConfig:
     ewts_id = ewts_id.upper()
 
     cfg = EwtsConfig(
-        ngen_active=is_ngen_active(),
+        running_in_ngen=is_ngen_active(),
         enabled=_env_bool("EWTS_ENABLED", True),
         # Only used for standalone; safe to compute always.
         log_dir=get_log_dir(),
@@ -123,8 +123,8 @@ def load_config(ewts_id: str) -> EwtsConfig:
         return cfg
 
     updates = {}
-    if ov.ngen_active is not None:
-        updates["ngen_active"] = ov.ngen_active
+    if ov.running_in_ngen is not None:
+        updates["running_in_ngen"] = ov.running_in_ngen
     if ov.enabled is not None:
         updates["enabled"] = ov.enabled
     if ov.log_dir is not None:

@@ -173,7 +173,7 @@ class EwtsLogger:
 
             print(f"{self._prefix} {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
 
-        if cfg.ngen_active:
+        if cfg.running_in_ngen:
             self._bridge = _NgenBridge.try_load()
             # If the bridge isn't available, we still fall back to standalone.
             if self._bridge is not None:
@@ -416,7 +416,7 @@ def setup_logger(
     level: str | int | None = None,
     log_dir: str | Path | None = None,
     log_file_name: str | None = None,
-    use_ngen_env: bool | None = None,
+    running_in_ngen: bool | None = None,
     enabled: bool | None = None,
     bind_now: bool = False,
 ) -> BoundEwtsLoggerProxy | EwtsLogger:
@@ -432,7 +432,7 @@ def setup_logger(
 
     set_runtime_override(
         ewts_id,
-        ngen_active=use_ngen_env,
+        running_in_ngen=running_in_ngen,
         enabled=enabled,
         log_dir=log_dir,
         default_level=parsed_level,
