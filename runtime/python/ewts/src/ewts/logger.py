@@ -159,19 +159,42 @@ class EwtsLogger:
         if self.ewts_id not in _init_printed:
             print(f"{self._prefix} {self.ewts_id} logging is ENABLED", flush=True)
 
-            env_key = f"{self.ewts_id}_LOGLEVEL"
-            env_val = getenv_any(env_key, "").strip()
+            module_env_key = f"{self.ewts_id}_LOGLEVEL"
+            module_env_val = getenv_any(module_env_key, "").strip()
 
-            if env_val:
-                if env_val.isdigit():
-                    env_level_name = _level_name(int(env_val))
-                else:
-                    env_level_name = env_val.upper()
-                print(f"{self._prefix} {self.ewts_id} log level from env var {env_key} is {env_level_name}", flush=True)
+            default_env_key = "EWTS_LOG_LEVEL"
+            default_env_val = getenv_any(default_env_key, "").strip()
+
+            if module_env_val:
+                env_level_name = (
+                    _level_name(int(module_env_val))
+                    if module_env_val.isdigit()
+                    else module_env_val.upper()
+                )
+                print(
+                    f"{self._prefix} {self.ewts_id} log level from env var "
+                    f"{module_env_key} is {env_level_name}",
+                    flush=True,
+                )
+            elif default_env_val:
+                env_level_name = (
+                    _level_name(int(default_env_val))
+                    if default_env_val.isdigit()
+                    else default_env_val.upper()
+                )
+                print(
+                    f"{self._prefix} {self.ewts_id} log level from env var "
+                    f"{default_env_key} is {env_level_name}",
+                    flush=True,
+                )
             else:
-                print(f"{self._prefix} {self.ewts_id} log level from default EWTS_LOG_LEVEL", flush=True)
+                print(
+                    f"{self._prefix} {self.ewts_id} no module-specific or default EWTS log "
+                    f"level env var found; defaulting to INFO",
+                    flush=True,
+                )
 
-            print(f"{self._prefix} {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True)
+            print(f"{self._prefix} {self.ewts_id} log level set to {_level_name(self._min_level)}", flush=True,)
 
         if cfg.running_in_ngen:
             self._bridge = _NgenBridge.try_load()
