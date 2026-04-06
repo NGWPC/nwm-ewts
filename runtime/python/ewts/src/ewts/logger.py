@@ -363,6 +363,13 @@ class BoundEwtsLoggerProxy:
 
     def is_bound(self) -> bool:
         return self._real_logger is not None
+    
+    def get_bound_logger(self) -> EwtsLogger:
+        if self._real_logger is None:
+            raise RuntimeError(
+                f"EWTS logger {self.ewts_id} has not been bound yet."
+            )
+        return self._real_logger
 
     def _require_bound(self) -> EwtsLogger:
         if self._real_logger is None:
