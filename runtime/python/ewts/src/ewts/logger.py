@@ -371,6 +371,10 @@ class BoundEwtsLoggerProxy:
             )
         return self._real_logger
 
+    def reset(self) -> None:
+        self._real_logger = None
+        _init_printed.discard(self.ewts_id)
+
     def _require_bound(self) -> EwtsLogger:
         if self._real_logger is None:
             raise RuntimeError(
@@ -440,6 +444,10 @@ def bind_logger(module_key_or_ewts_id: str) -> EwtsLogger:
     return get_logger(module_key_or_ewts_id).bind()
 
 
+def reset_logger(module_key_or_ewts_id: str) -> None:
+    get_logger(module_key_or_ewts_id).reset()
+
+    
 def setup_logger(
     module_key_or_ewts_id: str,
     *,
@@ -473,3 +481,4 @@ def setup_logger(
         return bind_logger(ewts_id)
 
     return get_logger(ewts_id)
+
