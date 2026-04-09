@@ -27,6 +27,7 @@ int Logger::g_mpiRank = 0;
 namespace {
 
 static const char* const kEnvResultsDir    = "NGEN_RESULTS_DIR";
+static const char* const kEnvLogfilePrefix = "NGEN_LOG_FILE_PREFIX";
 static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
 static const char* const kConfigFilename   = "ngen_logging.json";
 static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
@@ -145,6 +146,8 @@ void Logger::InitIfNeeded() {
     static std::once_flag once;
     std::call_once(once, [this]() {
 
+        std::ostringstream oss;
+
         // Determine MPI rank (optional)
         if (mpi_is_initialized()) {
             int r = 0;
@@ -155,7 +158,8 @@ void Logger::InitIfNeeded() {
             setenv("EWTS_RANK", val.c_str(), 1);
 
             // Build string first to minimize risk of stdout buffer interleaving during mpi runs
-            std::ostringstream oss;
+            oss.str("");     // clear the contents
+            oss.clear();     // reset stream state flags
             oss << "[rank " << g_mpiRank << "] EWTS NGEN Running with MPI\n";
             std::cout << oss.str() << std::flush;
 
@@ -171,10 +175,18 @@ void Logger::InitIfNeeded() {
         std::string ngenResultsDir;
 
         // Determine results dir
+        oss.str("");     // clear the contents
+        oss.clear();     // reset stream state flags
         const char* rd = std::getenv(kEnvResultsDir);
         if (rd && std::strlen(rd) > 0) {
             ngenResultsDir = std::string(rd);
+            oss << "EWTS NGEN Found env var " << kEnvResultsDir << " = " << ngenResultsDir << '\n';
         }
+        else {
+            oss << "EWTS NGEN env var " << kEnvResultsDir << " NOT FOUND" << '\n';
+        }
+        std::cout << oss.str() << std::flush;
+
 
         // Determine module EWTS id (for log message prefix)
         // moduleKey is stable key (lowercase)
@@ -368,9 +380,11 @@ std::string Logger::GetStandaloneBaseDir() {
 }
 
 void Logger::SetupLogFile(const std::string& resultsDir) {
+    std::ostringstream oss;
+
     // Determine output directory
     if (!resultsDir.empty()) {
-        logFileDir = JoinPath(resultsDir, "logs");
+        logFileDir = resultsDir;
     } else {
         logFileDir = GetStandaloneBaseDir();
     }
@@ -383,8 +397,9 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         logFilePath.clear();
 
         // Build string first to minimize risk of stdout buffer interleaving during mpi runs
-        std::ostringstream oss;
         if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
+        oss.str("");     // clear the contents
+        oss.clear();     // reset stream state flags
         oss << "EWTS NGEN split log files under " << logFileDir << '\n';
         std::cout << oss.str() << std::flush;
         return;
@@ -392,6 +407,19 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
 
     // Determine file name
     std::string stem = "ngen";
+
+    // Determine if a Log File name Prefix has been specified
+    oss.str("");     // clear the contents
+    oss.clear();     // reset stream state flags
+    const char* rd = std::getenv(kEnvLogfilePrefix);
+    if (rd && std::strlen(rd) > 0) {
+        stem = TrimString(std::string(rd));
+        oss << "EWTS NGEN Found env var " << kEnvLogfilePrefix << " = " << stem << '\n';
+    }
+    else {
+        oss << "EWTS NGEN Found env var " << kEnvLogfilePrefix << " NOT FOUND " << '\n';
+    }
+    std::cout << oss.str() << std::flush;
 
     std::string rank_part;
     if (mpi_is_initialized()) {
@@ -411,8 +439,9 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     logFile.open(logFilePath.c_str(), std::ios::out | std::ios::app);
 
     // Build string to minimize risk of buffer interleaving during mpi runs
-    std::ostringstream oss;
     if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
+    oss.str("");     // clear the contents
+    oss.clear();     // reset stream state flags
     oss << "EWTS NGEN log file " << logFilePath << '\n';
     std::cout << oss.str() << std::flush;
 }
