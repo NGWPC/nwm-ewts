@@ -68,8 +68,8 @@ set(EWTS_PY_PKG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/python/ewts")
 set(EWTS_PY_DIST_DIR "${EWTS_PY_PKG_DIR}/dist")
 
 add_custom_target(ewts_python_dist ALL
-  COMMAND "${Python3_EXECUTABLE}" -m pip install --upgrade build
-  COMMAND "${Python3_EXECUTABLE}" -m build
+  COMMAND "${Python3_EXECUTABLE}" -m pip install --upgrade build setuptools wheel
+  COMMAND "${Python3_EXECUTABLE}" -m build --wheel --no-isolation
   WORKING_DIRECTORY "${EWTS_PY_PKG_DIR}"
   COMMENT "Building EWTS Python wheel"
 )
