@@ -135,6 +135,24 @@ inline LogLevel get_default_log_level() {
     return LogLevel::INFO;
 }
 
+inline std::string GetLogFilePrefixFromEnv() {
+    const char* p = std::getenv(kEnvLogfilePrefix);
+    if (!p || std::strlen(p) == 0) {
+        return "";
+    }
+
+    const std::string prefix = TrimString(std::string(p));
+    return prefix;
+}
+
+inline std::string PrependLogFilePrefix(const std::string& baseName) {
+    const std::string prefix = GetLogFilePrefixFromEnv();
+    if (prefix.empty()) {
+        return baseName;
+    }
+    return prefix + "_" + baseName;
+}
+
 } // namespace
 
 Logger* Logger::GetLogger() {
@@ -408,16 +426,15 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     // Determine file name
     std::string stem = "ngen";
 
-    // Determine if a Log File name Prefix has been specified
     oss.str("");     // clear the contents
     oss.clear();     // reset stream state flags
-    const char* rd = std::getenv(kEnvLogfilePrefix);
-    if (rd && std::strlen(rd) > 0) {
-        stem = TrimString(std::string(rd));
-        oss << "EWTS NGEN Found env var " << kEnvLogfilePrefix << " = " << stem << '\n';
+    const std::string logPrefix = GetLogFilePrefixFromEnv();
+    if (!logPrefix.empty()) {
+        oss << "EWTS NGEN Found env var " << kEnvLogfilePrefix << " = " << logPrefix << '\n';
+        stem = PrependLogFilePrefix(stem);
     }
     else {
-        oss << "EWTS NGEN Found env var " << kEnvLogfilePrefix << " NOT FOUND " << '\n';
+        oss << "EWTS NGEN env var " << kEnvLogfilePrefix << " NOT FOUND\n";
     }
     std::cout << oss.str() << std::flush;
 
@@ -602,7 +619,10 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
                 ts_part = "_" + CreateCompactTimestampUTC();
             }
 
-            const std::string filename = ToLower(moduleName) + rank_part + ts_part + ".log";
+            std::string stem = ToLower(moduleName);
+            stem = PrependLogFilePrefix(stem);
+
+            const std::string filename = stem + rank_part + ts_part + ".log";
             const std::string path = JoinPath(logger->logFileDir, filename);
 
             std::ofstream& splitFile = splitLogFiles[moduleName];
