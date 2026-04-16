@@ -372,6 +372,21 @@ class BoundEwtsLoggerProxy:
         return self._real_logger
 
     def reset(self) -> None:
+        name = f"ewts.{self.ewts_id}"
+        py_logger = logging.getLogger(name)
+
+        for h in list(py_logger.handlers):
+            py_logger.removeHandler(h)
+            try:
+                h.close()
+            except Exception:
+                pass
+
+        py_logger.filters.clear()
+        py_logger.setLevel(logging.NOTSET)
+        py_logger.propagate = True
+        py_logger.disabled = False
+
         self._real_logger = None
         _init_printed.discard(self.ewts_id)
 
