@@ -468,6 +468,7 @@ def setup_logger(
     ewts_id = _resolve_ewts_id(module_key_or_ewts_id)
     parsed_level = parse_log_level(level) if level is not None else None
 
+    reset_logger(ewts_id)
     set_runtime_override(
         ewts_id,
         running_in_ngen=running_in_ngen,
