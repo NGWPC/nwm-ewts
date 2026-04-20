@@ -47,13 +47,26 @@ Example:
 
 ### Under `ngen`
 
-Logs are written beneath:
+Logs are written in either logs, the Run subdirectory or the worker:
 
 ```text
 <NGEN_RESULTS_DIR>/logs/
+<NGEN_RESULTS_DIR>/Calibration_Run
+<NGEN_RESULTS_DIR>/Validation_Run
+<NGEN_RESULTS_DIR>/Validation_Run/ngen_<worker name>_worker
+<NGEN_RESULTS_DIR>/Forecast_Run
+<NGEN_RESULTS_DIR>/Forecast_Run/Verification_Run/Verification_<job ID>
 ```
+
+### Components that support `ngen`
+Components support the preparation of the data required for an ngen run. 
+They operate in standalone mode within EWTS and store their logs in the 
+directories listed above. These components include the Model Setup 
+Workflow Manager, Calibration Manager, and Forecast Manager.
 
 ### Outside `ngen`
 
-If `NGEN_RESULTS_DIR` is not set, EWTS falls back to standalone directory
-selection using `EWTS_LOG_DIR`, `$HOME/run_logs`, and `./run_logs`.
+For ngen submodlues and components that run standalone, the code checks the
+`NGEN_RESULTS_DIR` enrironment variable. If it is not set, EWTS falls back
+to standalone directory selection using `EWTS_LOG_DIR`, `$HOME/run_logs`, 
+and `./run_logs`.
