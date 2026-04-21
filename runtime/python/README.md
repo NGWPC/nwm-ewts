@@ -195,54 +195,6 @@ If the log directory cannot be created, logs are written to stdout
 
 # Logging API
 
-## setup_logger(...)
-
-Configures logging for a specific EWTS ID.
-
-```python
-def setup_logger(
-    module_key_or_ewts_id: str,
-    *,
-    level: str | int | None = None,
-    log_dir: str | Path | None = None,
-    log_file_name: str | None = None,
-    running_in_ngen: bool | None = None,
-    enabled: bool | None = None,
-    bind_now: bool = False,
-) -> BoundEwtsLoggerProxy | EwtsLogger
-```
-
-### Required
-- `module_key_or_ewts_id: str`
-
-### Optional (with defaults)
-- `level: str | int | None = None`  
-  → Uses environment/default config if not provided
-
-- `log_dir: str | Path | None = None`  
-  → Uses `EWTS_LOG_DIR` or internal default
-
-- `log_file_name: str | None = None`  
-  → Auto-generated via `make_log_path(...)`
-
-- `running_in_ngen: bool | None = None`  
-  → Determined from runtime/environment
-
-- `enabled: bool | None = None`  
-  → Uses `EWTS_ENABLED` or defaults to enabled
-
-- `bind_now: bool = False`  
-  → Returns proxy unless explicitly set True
-
-### Behavior
-- Calls `reset_logger()` first
-- Applies overrides via `set_runtime_override()`
-- Returns:
-  - Proxy (`bind_now=False`)
-  - Bound logger (`bind_now=True`)
-
----
-
 ## get_logger(module_key_or_ewts_id)
 
 ```python
@@ -309,6 +261,56 @@ def reset_logger(module_key_or_ewts_id: str) -> None
 
 ---
 
+## setup_logger(...)
+
+Configures logging for a specific EWTS ID. Intended for use by 
+standalone components; not used by ngen submodules.
+
+
+```python
+def setup_logger(
+    module_key_or_ewts_id: str,
+    *,
+    level: str | int | None = None,
+    log_dir: str | Path | None = None,
+    log_file_name: str | None = None,
+    running_in_ngen: bool | None = None,
+    enabled: bool | None = None,
+    bind_now: bool = False,
+) -> BoundEwtsLoggerProxy | EwtsLogger
+```
+
+### Required
+- `module_key_or_ewts_id: str`
+
+### Optional (with defaults)
+- `level: str | int | None = None`  
+  → Uses environment/default config if not provided
+
+- `log_dir: str | Path | None = None`  
+  → Uses `EWTS_LOG_DIR` or internal default
+
+- `log_file_name: str | None = None`  
+  → Auto-generated via `make_log_path(...)`
+
+- `running_in_ngen: bool | None = None`  
+  → Determined from runtime/environment
+
+- `enabled: bool | None = None`  
+  → Uses `EWTS_ENABLED` or defaults to enabled
+
+- `bind_now: bool = False`  
+  → Returns proxy unless explicitly set True
+
+### Behavior
+- Calls `reset_logger()` first
+- Applies overrides via `set_runtime_override()`
+- Returns:
+  - Proxy (`bind_now=False`)
+  - Bound logger (`bind_now=True`)
+
+---
+
 ## Valid EWTS Module Identifiers
 
 Use the following constants when working with EWTS loggers.  
@@ -323,7 +325,6 @@ You may pass either the module id or key to `get_logger()` or `setup_logger()`.
 | TopoFlow Glacier | `TOPOFLOW_GLACIER_ID` | `TOPOFLOW_GLACIER_KEY` | `"TFGLACR"` |
 | T-Route | `T_ROUTE_ID` | `T_ROUTE_KEY` | `"TROUTE"` |
 | Calibration Manager | `CAL_MGR_ID` | `CAL_MGR_KEY` | `"CALMGR"` |
-| Evaluation Manager | `EVAL_MGR_ID` | `EVAL_MGR_KEY` | `"EVALMGR"` |
 | Forecast Manager | `FCST_MGR_ID` | `FCST_MGR_KEY` | `"FCSTMGR"` |
 | MSW Manager | `MSW_MGR_ID` | `MSW_MGR_KEY` | `"MSWMGR"` |
 
