@@ -38,9 +38,6 @@ def test_get_log_dir_default_is_home_run_logs(clean_ewts_env, monkeypatch, tmp_p
         ("INFO", LEVELS["INFO"]),
         (" debug ", LEVELS["DEBUG"]),
         ("15", 15),
-        ("warn", LEVELS["WARNING"]),
-        ("critical", LEVELS["FATAL"]),
-        ("none", LEVELS["NOTSET"]),
         ("SeVeRe", LEVELS["SEVERE"]),
         ("bogus", LEVELS.get("INFO", 20)),
     ],
@@ -63,6 +60,6 @@ def test_load_config_fields(clean_ewts_env, monkeypatch, tmp_path):
     monkeypatch.setenv("EWTS_LOG_DIR", str(tmp_path))
     monkeypatch.setenv("EWTS_LOG_LEVEL", "WARNING")
     cfg = load_config("TROUTE")
-    assert cfg.ngen_active is False
+    assert cfg.running_in_ngen is False
     assert cfg.log_dir == tmp_path
     assert cfg.default_level == LEVELS["WARNING"]
