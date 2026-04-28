@@ -2,6 +2,7 @@ import logging
 import re
 
 import ewts.formatter as formatter
+import ewts.paths as paths
 from ewts import get_logger
 
 
@@ -49,6 +50,7 @@ def test_logger_writes_file_with_expected_prefix(clean_ewts_env, monkeypatch, tm
 
     monkeypatch.setattr(formatter, "iso_utc_timestamp_ms", lambda: "2026-01-01T01:02:03.004Z")
     monkeypatch.setattr(formatter, "compact_utc_timestamp", lambda: "20260101T010203")
+    monkeypatch.setattr(paths, "compact_utc_timestamp", lambda: "20260101T010203")
 
     lg = get_logger("TROUTE")
     lg.bind()
@@ -72,6 +74,7 @@ def test_perform_level(clean_ewts_env, monkeypatch, tmp_path):
 
     monkeypatch.setattr(formatter, "iso_utc_timestamp_ms", lambda: "2026-01-01T01:02:03.004Z")
     monkeypatch.setattr(formatter, "compact_utc_timestamp", lambda: "20260101T010203")
+    monkeypatch.setattr(paths, "compact_utc_timestamp", lambda: "20260101T010203")
 
     lg = get_logger("TROUTE")
     lg.bind()
@@ -91,6 +94,7 @@ def test_info_not_mapped_to_perform(clean_ewts_env, monkeypatch, tmp_path):
 
     monkeypatch.setattr(formatter, "iso_utc_timestamp_ms", lambda: "2026-01-01T01:02:03.004Z")
     monkeypatch.setattr(formatter, "compact_utc_timestamp", lambda: "20260101T010203")
+    monkeypatch.setattr(paths, "compact_utc_timestamp", lambda: "20260101T010203")
 
     lg = get_logger("TROUTE")
     lg.bind()
