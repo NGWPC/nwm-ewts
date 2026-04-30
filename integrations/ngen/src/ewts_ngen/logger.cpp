@@ -28,6 +28,7 @@ namespace {
 
 static const char* const kEnvResultsDir    = "NGEN_RESULTS_DIR";
 static const char* const kEnvLogfilePrefix = "NGEN_LOG_FILE_PREFIX";
+static const char* const kEnvUseNgenBridge = "EWTS_USE_NGEN_BRIDGE";
 static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
 static const char* const kConfigFilename   = "ngen_logging.json";
 static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
@@ -360,6 +361,9 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
 
 void Logger::ApplyEnvVars(bool set) {
     if (!set) return;
+
+    // EWTS_USE_NGEN_BRIDGE enables logging through the ngen bridge when set to "1"
+    ::setenv(kEnvUseNgenBridge, "1", 1);
 
     // EWTS_ENABLED=0|1 (default 1)
     ::setenv(kEnvEwtsEnabled, loggingEnabled ? "1" : "0", 1);

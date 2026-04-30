@@ -60,8 +60,8 @@ def _env_bool(name: str, default: bool = True) -> bool:
     return str(v).strip().lower() not in ("0", "false", "off", "no")
 
 def is_ngen_active() -> bool:
-    # ngen provides NGEN_RESULTS_DIR when running within ngen.
-    return bool(getenv_any("NGEN_RESULTS_DIR", "").strip())
+    # ngen provides EWTS_USE_NGEN_BRIDGE when running within ngen.
+    return bool(getenv_any("EWTS_USE_NGEN_BRIDGE", "").strip())
 
 def get_log_dir() -> Path:
     v = getenv_any("EWTS_LOG_DIR", "").strip()
