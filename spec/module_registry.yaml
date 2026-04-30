@@ -92,3 +92,11 @@ modules:
     ewts_id: FCSTMGR
     language: python
     description: "Forecast Manager Component"
+  - key: rte
+    ewts_id: RTE
+    language: python
+    description: "Runtime Environment Component"
+  - key: assim-engine
+    ewts_id: ASSIM
+    language: python
+    description: "Assimilation Engine Component"
