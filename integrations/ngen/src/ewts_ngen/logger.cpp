@@ -453,7 +453,7 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     logFilePath = JoinPath(logFileDir, filename);
 
     // Open file (append)
-    logFile.open(logFilePath.c_str(), std::ios::out | std::ios::app);
+    logFile.open(logFilePath.c_str(), std::ios::out | std::ios::trunc);
 
     // Build string to minimize risk of buffer interleaving during mpi runs
     if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
@@ -626,7 +626,7 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
             const std::string path = JoinPath(logger->logFileDir, filename);
 
             std::ofstream& splitFile = splitLogFiles[moduleName];
-            splitFile.open(path.c_str(), std::ios::out | std::ios::app);
+            splitFile.open(path.c_str(), std::ios::out | std::ios::trunc);
 
             // Build string first to minimize risk of stdout buffer interleaving during mpi runs
             std::ostringstream oss;
