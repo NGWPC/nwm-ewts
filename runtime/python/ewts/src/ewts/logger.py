@@ -12,6 +12,7 @@ from .formatter import format_prefix, split_lines
 from .helper import getenv_any
 from .log_levels import parse_log_level
 from .paths import make_log_path
+from .module_keys import EWTS_ID_TO_KEYS
 
 # Register EWTS PERFORM level with Python logging
 logging.addLevelName(15, "PERFORM")
@@ -497,4 +498,37 @@ def setup_logger(
         return bind_logger(ewts_id)
 
     return get_logger(ewts_id)
+
+def configure_existing_logger(logger: logging.Logger) -> logging.Logger:
+    """Configure an existing Python logger as an EWTS-managed logger.
+
+    The logger name must match a known EWTS module id.
+    """
+    if logger.name not in EWTS_ID_TO_KEYS:
+        valid = ", ".join(EWTS_ID_TO_KEYS.keys())
+        raise ValueError(
+            f"Logger name {logger.name!r} is not a known EWTS module id. "
+            f"Valid ids: {valid}"
+        )
+
+    # reset passed logger and remove any attached handlers
+    reset_logger(logger.name)
+    for h in list(logger.handlers):
+        logger.removeHandler(h)
+        try:
+            h.close()
+        except Exception:
+            pass
+    logger.propagate = False
+    logger.setLevel(logging.NOTSET)
+
+    # Create an EwtsLogger 
+    ewts_logger = EwtsLogger(logger.name)
+
+    # Attach EWTS handler to the passed logger
+    handler = EwtsHandler(ewts_logger)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+
+    return logger
 
