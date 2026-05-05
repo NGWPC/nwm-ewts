@@ -523,6 +523,7 @@ def configure_existing_logger(logger: logging.Logger) -> logging.Logger:
 
     # Create an EwtsLogger 
     ewts_logger = EwtsLogger(logger.name)
+    logger.setLevel(ewts_logger._min_level)
 
     # Attach EWTS handler to the passed logger
     handler = EwtsHandler(ewts_logger)
