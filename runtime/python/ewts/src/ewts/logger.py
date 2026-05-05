@@ -520,7 +520,6 @@ def configure_existing_logger(logger: logging.Logger) -> logging.Logger:
         except Exception:
             pass
     logger.propagate = False
-    logger.setLevel(logging.NOTSET)
 
     # Create an EwtsLogger 
     ewts_logger = EwtsLogger(logger.name)
