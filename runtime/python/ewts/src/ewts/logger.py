@@ -258,6 +258,7 @@ class EwtsLogger:
         return LEVELS.get("DEBUG", 10)
 
     def _write(self, level: int, text: str) -> None:
+
         if int(level) < int(self._min_level):
             return
 
@@ -511,21 +512,22 @@ def configure_existing_logger(logger: logging.Logger) -> logging.Logger:
             f"Valid ids: {valid}"
         )
 
-    # reset passed logger and remove any attached handlers
-    reset_logger(logger.name)
     for h in list(logger.handlers):
         logger.removeHandler(h)
         try:
             h.close()
         except Exception:
             pass
+
+    logger.filters.clear()
     logger.propagate = False
+    logger.disabled = False
 
     # Create an EwtsLogger 
     ewts_logger = EwtsLogger(logger.name)
+
     logger.setLevel(ewts_logger._min_level)
 
-    # Attach EWTS handler to the passed logger
     handler = EwtsHandler(ewts_logger)
     handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(handler)
