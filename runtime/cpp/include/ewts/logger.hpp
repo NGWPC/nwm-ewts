@@ -66,7 +66,4 @@ void Log(std::string_view message, LogLevel level);
 
 }  // namespace ewts
 
-/* Preserve existing LOG(...) usage */
-#define LOG(...) ::ewts::CurrentLogger().Log(__VA_ARGS__)
-
 #endif
