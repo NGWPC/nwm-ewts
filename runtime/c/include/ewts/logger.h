@@ -31,27 +31,5 @@ bool EwtsIsLoggingEnabledModule(const char* ewts_id);
 #ifdef __cplusplus
 }
 #endif
-
-/*
- * Optional convenience rebinding:
- *
- * If a module defines EWTS_ID before including this header, calls such as
- *   Log(INFO, "message");
- * are redirected to the per-module implementation:
- *   EwtsLogModule(EWTS_ID, INFO, "message");
- *
- * This preserves existing call sites while avoiding process-global collisions.
- */
-#ifdef EWTS_ID
-#define Log(level, ...)               EwtsLogModule(EWTS_ID, (level), __VA_ARGS__)
-#define GetLogLevel()                 EwtsGetLogLevelModule(EWTS_ID)
-#define IsLoggingEnabled()            EwtsIsLoggingEnabledModule(EWTS_ID)
-
-/* Optional uppercase convenience */
-#define LOG(level, ...)               EwtsLogModule(EWTS_ID, (level), __VA_ARGS__)
-#else
-/* Fallback compatibility path */
-#define LOG(level, ...)               Log((level), __VA_ARGS__)
-#endif
-
+    
 #endif /* EWTS_LOGGER_H */
