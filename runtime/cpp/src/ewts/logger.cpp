@@ -213,7 +213,7 @@ void Logger::init_once() {
         std::cout << oss.str() << std::flush;
     }
     else
-        std::cout << "EWTS " << ewts_id_ << " logging standalone" << std::endl;
+        std::cout << prefix << ewts_id_ << " logging standalone" << std::endl;
 }
 
 bool Logger::IsLoggingEnabled() {
