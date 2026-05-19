@@ -1,6 +1,7 @@
 """Classes to enable sending structured data payloads through log file entries."""
 
 import re
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -64,7 +65,7 @@ class Payload(BaseModel):
         return self.__str__()
 
 
-def extract_payload_from_log_msg(log_msg: str) -> Payload | None:
+def payload_of_log_msg(log_msg: str) -> Payload | None:
     """Extract a Payload object from a log message, if it contains the sentinel. Otherwise, return None.
     Requires that the provided string is one line (Payloads should have escape newline chars via Pydantic model_dump_json()).
 
@@ -100,3 +101,25 @@ def extract_payload_from_log_msg(log_msg: str) -> Payload | None:
         return payload
     else:
         return None
+
+
+class LogParts(BaseModel):
+    dt: datetime
+    module: str
+    level: str
+    msg: str
+    payload: Payload | None
+
+
+def parts_of_log_line(line: str) -> LogParts:
+    parts = line.split(None, 3)
+    if len(parts) < 4:
+        raise ValueError(f"Could not parse log line: {repr(line)}")
+    timestamp_str, module, level, msg = parts
+    dt = datetime.fromisoformat(timestamp_str)
+    if dt.tzinfo is None or dt.tzinfo != timezone.utc:
+        raise ValueError(
+            f"Expected timezone {timezone.utc}, got: {dt.tzinfo}. Full line: {repr(line)}"
+        )
+    payload = payload_of_log_msg(msg)
+    return LogParts(dt=dt, module=module, level=level, msg=msg, payload=payload)

@@ -7,7 +7,7 @@ Public API:
 # This unused-looking import is deliberate — it’s part of the public API.
 from ._version import __version__, NGWPC_VERSION
 from .logger import EwtsLogger, setup_logger, get_logger, bind_logger, reset_logger, configure_existing_logger # noqa: F401
-from .data_payloads import Payload, Status, extract_payload_from_log_msg # noqa: F401
+from .data_payloads import Payload, payload_of_log_msg, Status, parts_of_log_line  # noqa: F401
 from . import modules as _modules
 
 # Re-export all *_ID constants from ewts.modules
