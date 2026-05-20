@@ -1,10 +1,12 @@
-"""Classes to enable sending structured data payloads through log file entries."""
+"""Classes to enable sending structured data payloads through log file entries.
+Some of the syntax would be simpler with pydantic, but that libray was not part
+of nwm-ewts dependencies when this was written."""
 
+import json
 import re
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
-
-from pydantic import BaseModel, Field
 
 MSG_PAYLOAD_SENTINEL_START = "<MSG_DATA>"
 MSG_PAYLOAD_SENTINEL_END = "</MSG_DATA>"
@@ -25,31 +27,55 @@ class Status(StrEnum):
     ERROR = "ERROR"
 
 
-class Payload(BaseModel):
+@dataclass
+class Payload:
     """Log payload class for status reporting via logs.
-    __init__ is defined simply to allow positional arguments within Pydantic BaseModel framework."""
 
-    status: Status = Field(description="Status")
-    prog: float | None = Field(
-        default=None, ge=0, le=1, description="Progress (0.0 to 1.0)"
-    )
-    msg: str | None = Field(default=None, description="Message")
-    modnm: str | None = Field(default=None, description="Module name")
+    Parameters
+    ----------
+    status : Status
+        The status of the payload.
+    prog : float, optional
+        Progress (0.0 to 1.0), by default None.
+    msg : str, optional
+        A message associated with the payload, by default None.
+    modnm : str, optional
+        The module name, by default None.
+    """
 
-    def __init__(
-        self,
-        status: Status,
-        prog: float | None = None,
-        msg: str | None = None,
-        modnm: str | None = None,
-    ):
-        """__init__ is defined simply to allow positional arguments within Pydantic BaseModel framework."""
-        super().__init__(status=status, prog=prog, msg=msg, modnm=modnm)
+    status: Status
+    prog: float | None = None
+    msg: str | None = None
+    modnm: str | None = None
+
+    def __post_init__(self):
+        errs: list[Exception] = []
+        if not isinstance(self.status, Status):
+            errs.append(TypeError(f"status: expect {Status}, got {type(self.status)}"))
+        if isinstance(self.prog, float):
+            if not (0.0 <= self.prog <= 1.0):
+                errs.append(
+                    ValueError(
+                        f"prog: expect value between 0.0 and 1.0, got {self.prog}"
+                    )
+                )
+        elif self.prog is not None:
+            errs.append(
+                TypeError(f"prog: expect {float} or None, got {type(self.prog)}")
+            )
+        if not isinstance(self.msg, (str, type(None))):
+            errs.append(TypeError(f"msg: expect {str} or None, got {type(self.msg)}"))
+        if not isinstance(self.modnm, (str, type(None))):
+            errs.append(
+                TypeError(f"modnm: expect {str} or None, got {type(self.modnm)}")
+            )
+        if errs:
+            raise ValueError(f"Errors constructing Payload: {errs}")
 
     @property
     def json(self) -> str:
         """A json string (dict) representation for logging."""
-        return self.model_dump_json()
+        return json.dumps(asdict(self))
 
     @property
     def json_wrapped(self) -> str:
@@ -67,7 +93,7 @@ class Payload(BaseModel):
 
 def payload_of_log_msg(log_msg: str) -> Payload | None:
     """Extract a Payload object from a log message, if it contains the sentinel. Otherwise, return None.
-    Requires that the provided string is one line (Payloads should have escape newline chars via Pydantic model_dump_json()).
+    Requires that the provided string is one line (Payloads should have escape newline chars via json.dumps(asdict(self))).
 
     Parameters
     ----------
@@ -93,22 +119,44 @@ def payload_of_log_msg(log_msg: str) -> Payload | None:
             )
         payload_raw_str = matches[0]
         try:
-            payload = Payload.model_validate_json(payload_raw_str)
+            d = json.loads(payload_raw_str)
+            d["status"] = Status(d["status"])
+            payload = Payload(**d)
         except Exception as e:
             raise ValueError(
-                f"Payload was detected in log message, but failed to parse as JSON into a Payload instance. Full message: {repr(log_msg)}. Payload raw string: {repr(payload_raw_str)}. Exception: {e}"
+                f"Payload was detected in log message, but it failed to parse. Full message: {repr(log_msg)}. Payload raw string: {repr(payload_raw_str)}. Exception: {e}"
             ) from e
         return payload
     else:
         return None
 
 
-class LogParts(BaseModel):
+@dataclass
+class LogParts:
     dt: datetime
     module: str
     level: str
     msg: str
     payload: Payload | None
+
+    def __post_init__(self):
+        errs: list[Exception] = []
+        if not isinstance(self.dt, datetime):
+            errs.append(TypeError(f"dt: expect {datetime}, got {type(self.dt)}"))
+        if not isinstance(self.module, str):
+            errs.append(TypeError(f"module: expect {str}, got {type(self.module)}"))
+        if not isinstance(self.level, str):
+            errs.append(TypeError(f"level: expect {str}, got {type(self.level)}"))
+        if not isinstance(self.msg, str):
+            errs.append(TypeError(f"msg: expect {str}, got {type(self.msg)}"))
+        if not isinstance(self.payload, (Payload, type(None))):
+            errs.append(
+                TypeError(
+                    f"payload: expect {Payload} or None, got {type(self.payload)}"
+                )
+            )
+        if errs:
+            raise ValueError(f"Errors constructing LogParts: {errs}")
 
 
 def parts_of_log_line(line: str) -> LogParts:
