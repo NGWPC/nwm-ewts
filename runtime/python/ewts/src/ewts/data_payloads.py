@@ -34,13 +34,18 @@ class Payload:
     Parameters
     ----------
     status : Status
-        The status of the payload.
+        Module status.
     prog : float, optional
-        Progress (0.0 to 1.0), by default None.
+        Module progress (0.0 to 1.0), by default None.
     msg : str, optional
-        A message associated with the payload, by default None.
+        Message.
     modnm : str, optional
-        The module name, by default None.
+        Module name.
+
+    Raises
+    ----------
+    ValueError
+        If there is a validation error with the provided inputs.
     """
 
     status: Status
@@ -92,7 +97,9 @@ class Payload:
 
 
 def payload_of_log_msg(log_msg: str) -> Payload | None:
-    """Extract a Payload object from a log message, if it contains the sentinel. Otherwise, return None.
+    """Factory for Payload object.
+
+    Construct and return a Payload from a log message, if it contains the sentinel. Otherwise, return None.
     Requires that the provided string is one line (Payloads should have escape newline chars via json.dumps(asdict(self))).
 
     Parameters
@@ -133,6 +140,27 @@ def payload_of_log_msg(log_msg: str) -> Payload | None:
 
 @dataclass
 class LogParts:
+    """Parts of a log line, optionally with structured Payload substructure.
+
+    Parameters
+    ----------
+    dt : datetime
+        The timestamp of the log line.
+    module : str
+        The module that sent the message.
+    level : str
+        The log level of the message.
+    msg : str
+        The message (may include raw payload string).
+    payload : Payload | None
+        The extracted Payload if the message contains a structured payload (wrapped in sentinel strings), else None.
+
+    Raises
+    ----------
+    ValueError
+        If there is a validation error with the provided inputs.
+    """
+
     dt: datetime
     module: str
     level: str
@@ -160,6 +188,36 @@ class LogParts:
 
 
 def parts_of_log_line(line: str) -> LogParts:
+    """Factory for LogParts object.
+
+    Construct and return a LogParts instance by parsing a log line (split on whitespace).
+    Asserts that the log line has at least 4 whitespace-delimited parts:
+    timestamp (datetime ISO string), module name, log level name, message.
+
+    The message may contain whitespace (it is at the end).
+
+    The message may include a Payload JSON string wrapped in the sentinel strings
+    MSG_PAYLOAD_SENTINEL_START and MSG_PAYLOAD_SENTINEL_END. If it does include the
+    sentinel strings, then the payload JSON dictionary between them will be parsed into
+    a Payload instance and included as attribute of the returned LogParts. If not, the
+    payload attribute of the returned LogParts will be None.
+
+    Parameters
+    ----------
+    line : str
+        The log line to parse.
+
+    Returns
+    -------
+    LogParts
+        The constructed LogParts instance.
+
+    Raises
+    ----------
+    ValueError
+        If the line has less than 4 parts after splitting on whitespace.
+        If the timestamp part does not use UTC timezone.
+    """
     parts = line.split(None, 3)
     if len(parts) < 4:
         raise ValueError(f"Could not parse log line: {repr(line)}")
