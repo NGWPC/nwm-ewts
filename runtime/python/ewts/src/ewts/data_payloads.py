@@ -4,7 +4,7 @@ of nwm-ewts dependencies when this was written."""
 
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import InitVar, asdict, dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
 
@@ -25,6 +25,11 @@ class Status(StrEnum):
     INPROG = "IN_PROGRESS"
     COMPLETE = "COMPLETE"
     ERROR = "ERROR"
+
+
+class LogPartsFactoryParserError(Exception):
+    """Custom exception for errors encountered when parsing log lines into LogParts.
+    Raised by payload_of_log_msg function."""
 
 
 @dataclass
@@ -154,6 +159,10 @@ class LogParts:
         The message (may include raw payload string).
     payload : Payload | None
         The extracted Payload if the message contains a structured payload (wrapped in sentinel strings), else None.
+    tolerant : bool, optional
+        If True, then types may be None, except for the payload attr which is always type-checked.
+        This is to support messages that may not have a compliant structure but may contain a Payload to be parsed.
+        Note, tolerant is not an attribute of the dataclass, it is an initialization variable (it does not get serialized).
 
     Raises
     ----------
@@ -166,28 +175,40 @@ class LogParts:
     level: str
     msg: str
     payload: Payload | None
+    tolerant: InitVar[bool] = False
 
-    def __post_init__(self):
+    def __post_init__(self, tolerant: bool):
+        t = tolerant
         errs: list[Exception] = []
-        if not isinstance(self.dt, datetime):
-            errs.append(TypeError(f"dt: expect {datetime}, got {type(self.dt)}"))
-        if not isinstance(self.module, str):
-            errs.append(TypeError(f"module: expect {str}, got {type(self.module)}"))
-        if not isinstance(self.level, str):
-            errs.append(TypeError(f"level: expect {str}, got {type(self.level)}"))
-        if not isinstance(self.msg, str):
-            errs.append(TypeError(f"msg: expect {str}, got {type(self.msg)}"))
+        if not isinstance(self.dt, datetime) and not (t and self.dt is None):
+            errs.append(
+                TypeError(f"dt: expect {datetime}, got {type(self.dt)} (tolerant={t})")
+            )
+        if not isinstance(self.module, str) and not (t and self.module is None):
+            errs.append(
+                TypeError(
+                    f"module: expect {str}, got {type(self.module)} (tolerant={t})"
+                )
+            )
+        if not isinstance(self.level, str) and not (t and self.level is None):
+            errs.append(
+                TypeError(f"level: expect {str}, got {type(self.level)} (tolerant={t})")
+            )
+        if not isinstance(self.msg, str) and not (t and self.msg is None):
+            errs.append(
+                TypeError(f"msg: expect {str}, got {type(self.msg)} (tolerant={t})")
+            )
         if not isinstance(self.payload, (Payload, type(None))):
             errs.append(
                 TypeError(
-                    f"payload: expect {Payload} or None, got {type(self.payload)}"
+                    f"payload: expect {Payload} or None, got {type(self.payload)} (tolerant={t})"
                 )
             )
         if errs:
             raise ValueError(f"Errors constructing LogParts: {errs}")
 
 
-def parts_of_log_line(line: str) -> LogParts:
+def parts_of_log_line(line: str, tolerant: bool = False) -> LogParts:
     """Factory for LogParts object.
 
     Construct and return a LogParts instance by parsing a log line (split on whitespace).
@@ -202,10 +223,16 @@ def parts_of_log_line(line: str) -> LogParts:
     a Payload instance and included as attribute of the returned LogParts. If not, the
     payload attribute of the returned LogParts will be None.
 
+    If the line does not have an expected pattern, it will raise a LogPartsFactoryParserError,
+    unless ``tolerant`` is True.
+
     Parameters
     ----------
     line : str
         The log line to parse.
+    tolerant : bool, optional (default False)
+        If True, parsing errors will not raise exceptions, but will return a LogParts instance with None for certain fields.
+        If a payload sentinel exists in the line, it will be parsed. There is no tolerance for payloads (if they exist, they must be valid).
 
     Returns
     -------
@@ -214,18 +241,39 @@ def parts_of_log_line(line: str) -> LogParts:
 
     Raises
     ----------
-    ValueError
+    LogPartsFactoryParserError
         If the line has less than 4 parts after splitting on whitespace.
         If the timestamp part does not use UTC timezone.
+        If the line fails to parse for any other reason.
     """
+    log_parts_kwargs = {
+        "dt": None,
+        "module": None,
+        "level": None,
+        "msg": None,
+        "payload": None,
+        "tolerant": tolerant,
+    }
     parts = line.split(None, 3)
     if len(parts) < 4:
-        raise ValueError(f"Could not parse log line: {repr(line)}")
-    timestamp_str, module, level, msg = parts
-    dt = datetime.fromisoformat(timestamp_str)
-    if dt.tzinfo is None or dt.tzinfo != timezone.utc:
-        raise ValueError(
-            f"Expected timezone {timezone.utc}, got: {dt.tzinfo}. Full line: {repr(line)}"
-        )
-    payload = payload_of_log_msg(msg)
-    return LogParts(dt=dt, module=module, level=level, msg=msg, payload=payload)
+        if not tolerant:
+            raise LogPartsFactoryParserError(f"Could not parse log line: {repr(line)}")
+    else:
+        timestamp_str, module, level, msg = parts
+        try:
+            dt = datetime.fromisoformat(timestamp_str)
+            log_parts_kwargs.update({"module": module, "level": level, "msg": msg})
+            if dt.tzinfo is None or dt.tzinfo != timezone.utc:
+                raise ValueError(
+                    f"Expected timezone {timezone.utc}, got: {dt.tzinfo}. Full line: {repr(line)}"
+                )
+            else:
+                log_parts_kwargs.update({"dt": dt})
+        except ValueError as e:
+            if not tolerant:
+                raise LogPartsFactoryParserError(
+                    f"Error parsing line: {repr(line)}"
+                ) from e
+
+    log_parts_kwargs.update({"payload": payload_of_log_msg(line)})
+    return LogParts(**log_parts_kwargs)
