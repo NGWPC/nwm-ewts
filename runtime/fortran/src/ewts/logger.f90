@@ -399,18 +399,13 @@ contains
 
     lenv = 0
     call get_environment_variable("EWTS_LOG_DIR", length=lenv)
-    if (lenv > 0) then
-      call get_environment_variable("EWTS_LOG_DIR", dir)
-      dir = adjustl(trim(dir))
-    else
-      call get_environment_variable("HOME", length=lenv)
-      if (lenv > 0) then
-        call get_environment_variable("HOME", dir)
-        dir = adjustl(trim(dir))//"/run_logs"
-      else
-        dir = "./run_logs"
-      end if
+    if (lenv <= 0) then
+        g_loggers(idx)%unit_log = -1
+        return
     end if
+
+    call get_environment_variable("EWTS_LOG_DIR", dir)
+    dir = adjustl(trim(dir))
 
     call execute_command_line("mkdir -p " // trim(dir), wait=.true.)
     call utc_timestamp_compact(ts)

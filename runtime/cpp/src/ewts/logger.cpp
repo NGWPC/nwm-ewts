@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -143,13 +144,19 @@ bool Logger::have_ngen_bridge() const {
 void Logger::open_standalone_file() {
     if (out_.is_open()) return;
 
+    // EV_EWTS_LOG_DIR is a fallback env var not set by ngen
+    // RTE or the user can set this when running standalone
+    // to direct where the logs should be written
     const char* dir = std::getenv(EV_EWTS_LOG_DIR);
-    std::string log_dir;
-    if (dir && *dir) log_dir = dir;
-    else {
-        const char* home = std::getenv("HOME");
-        log_dir = (home && *home) ? (std::string(home) + "/run_logs") : "./run_logs";
+
+    // New default: if EWTS_LOG_DIR is not explicitly set,
+    // do not open a file. Log() will fall back to std::cout.
+    if (!(dir && *dir)) {
+        path_.clear();
+        return;
     }
+
+    std::string log_dir = dir;
 
     std::filesystem::create_directories(log_dir);
 

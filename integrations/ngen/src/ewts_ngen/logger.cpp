@@ -409,12 +409,7 @@ std::string Logger::GetStandaloneBaseDir() {
         return std::string(ewts_log_dir);
     }
 
-    const std::string home = GetHomeDir();
-    if (!home.empty() && home != ".") {
-        return JoinPath(home, kDefaultRunLogsDirName);
-    }
-
-    return JoinPath(".", kDefaultRunLogsDirName);
+    return "";
 }
 
 void Logger::SetupLogFile(const std::string& resultsDir) {
@@ -427,6 +422,12 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         logFileDir = GetStandaloneBaseDir();
     }
 
+    if (logFileDir.empty()) {
+        logFilePath.clear();
+        std::cout << "EWTS NGEN using stdout logging\n" << std::flush;
+        return;
+    }
+
     (void)CreateDirectory(logFileDir);
 
     if (splitLogsByModule) {
@@ -435,9 +436,9 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         logFilePath.clear();
 
         // Build string first to minimize risk of stdout buffer interleaving during mpi runs
-        if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
         oss.str("");     // clear the contents
         oss.clear();     // reset stream state flags
+        if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
         oss << "EWTS NGEN split log files under " << logFileDir << '\n';
         std::cout << oss.str() << std::flush;
         return;
@@ -472,13 +473,15 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     const std::string filename = stem + rank_part + ts_part + ".log";
     logFilePath = JoinPath(logFileDir, filename);
 
-    // Open file (append)
+    // Open file in truncate mode. The calibration job runs ngen
+    // iteratively, and only the logs from the most recent ngen
+    // run should be retained.
     logFile.open(logFilePath.c_str(), std::ios::out | std::ios::trunc);
 
     // Build string to minimize risk of buffer interleaving during mpi runs
-    if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
     oss.str("");     // clear the contents
     oss.clear();     // reset stream state flags
+    if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
     oss << "EWTS NGEN log file " << logFilePath << '\n';
     std::cout << oss.str() << std::flush;
 }

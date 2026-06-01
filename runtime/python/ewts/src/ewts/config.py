@@ -48,7 +48,7 @@ def get_runtime_override(ewts_id: str) -> EwtsRuntimeOverride | None:
 class EwtsConfig:
     enabled: bool
     running_in_ngen: bool
-    log_dir: Path
+    log_dir: Path | None
     default_level: int
     mpi_rank: int
     log_file_name: str | None = None 
@@ -63,11 +63,11 @@ def is_ngen_active() -> bool:
     # ngen provides EWTS_USE_NGEN_BRIDGE when running within ngen.
     return bool(getenv_any("EWTS_USE_NGEN_BRIDGE", "").strip())
 
-def get_log_dir() -> Path:
+def get_log_dir() -> Path | None:
     v = getenv_any("EWTS_LOG_DIR", "").strip()
     if v:
         return Path(v).expanduser()
-    return Path.home() / _DEFAULT_LOG_DIR_NAME
+    return None
 
 def _parse_level_value(v: str) -> int | None:
     s = (v or "").strip()
