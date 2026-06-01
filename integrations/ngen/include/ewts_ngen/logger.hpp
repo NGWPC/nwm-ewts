@@ -61,7 +61,7 @@ class Logger {
     // init/policy
     void InitIfNeeded();
     bool ReadConfigFromResultsDir(const std::string& resultsDir);
-    void ApplyEnvVars(bool set);
+    void ConfigureEnvVars(bool set);
 
     // log file
     void SetupLogFile(const std::string& resultsDir);
