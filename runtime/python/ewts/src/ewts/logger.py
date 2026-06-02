@@ -206,18 +206,28 @@ class EwtsLogger:
                 _init_printed.add(self.ewts_id)
                 return
 
-        # Standalone file sink
-        if self.ewts_id not in _init_printed:
-            print(f"{self._prefix} {self.ewts_id} using standalone file logging", flush=True)
+        # Standalone sink
+        if cfg.log_dir is None:
+            if self.ewts_id not in _init_printed:
+                print(f"{self._prefix} {self.ewts_id} using stdout logging", flush=True)
+            self._log_path = None
+            _init_printed.add(self.ewts_id)
+            return
 
-        if cfg.log_file_name:
-            self._log_path = Path(cfg.log_dir) / cfg.log_file_name
-        else:
-            self._log_path = make_log_path(self.ewts_id, cfg.log_dir)
+        # Explicit log directory provided -> use file logging
+        self._log_path = make_log_path(
+            cfg.log_dir,
+            self.ewts_id,
+            self._mpi_rank,
+            cfg.log_file_name,
+        )
 
-        self._log_path.parent.mkdir(parents=True, exist_ok=True)
         if self.ewts_id not in _init_printed:
-            print(f"{self._prefix} {self.ewts_id} log file: {self._log_path}", flush=True)
+            print(
+                f"{self._prefix} {self.ewts_id} logging to {self._log_path}",
+                flush=True,
+            )
+
         _init_printed.add(self.ewts_id)
 
     @staticmethod
@@ -266,8 +276,13 @@ class EwtsLogger:
             self._bridge.log(self.ewts_id, int(level), text)
             return
 
-        assert self._log_path is not None
         prefix = format_prefix(self.ewts_id, int(level))
+
+        if self._log_path is None:
+            for line in split_lines(text):
+                print(f"{prefix} {line}", flush=True)
+            return
+
         with self._log_path.open("a", encoding="utf-8") as f:
             for line in split_lines(text):
                 f.write(f"{prefix} {line}\n")

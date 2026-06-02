@@ -167,6 +167,9 @@ void Logger::InitIfNeeded() {
 
         std::ostringstream oss;
 
+        // Ensure all logging environment variables controlled by ngen are not yet set
+        ConfigureEnvVars(false);
+
         // Determine MPI rank (optional)
         if (mpi_is_initialized()) {
             int r = 0;
@@ -237,7 +240,7 @@ void Logger::InitIfNeeded() {
             logLevel = defaultLogLevel;
         }
 
-        ApplyEnvVars(true);
+        ConfigureEnvVars(true);
 
         SetupLogFile(ngenResultsDir);
     });
@@ -359,31 +362,44 @@ bool Logger::ReadConfigFromResultsDir(const std::string& resultsDir) {
     return true;
 }
 
-void Logger::ApplyEnvVars(bool set) {
-    if (!set) return;
+void Logger::ConfigureEnvVars(bool set) {
+    if (set) {
+        // EWTS_USE_NGEN_BRIDGE enables logging through the ngen bridge when set to "1"
+        ::setenv(kEnvUseNgenBridge, "1", 1);
 
-    // EWTS_USE_NGEN_BRIDGE enables logging through the ngen bridge when set to "1"
-    ::setenv(kEnvUseNgenBridge, "1", 1);
+        // EWTS_ENABLED=0|1 (default 1)
+        ::setenv(kEnvEwtsEnabled, loggingEnabled ? "1" : "0", 1);
 
-    // EWTS_ENABLED=0|1 (default 1)
-    ::setenv(kEnvEwtsEnabled, loggingEnabled ? "1" : "0", 1);
+        // <MODULE>_LOGLEVEL=<10|15|20|30|40|50>
+        for (const auto& kv : moduleLogLevels) {
+            const std::string mod_key = kv.first;
+            const LogLevel lvl = kv.second;
+            const std::string ident = EnvVarIdentFromModuleKey(mod_key);
+            if (ident.empty()) continue;
 
-    // <MODULE>_LOGLEVEL=<10|15|20|30|40|50>
-    for (const auto& kv : moduleLogLevels) {
-        const std::string mod_key = kv.first;
-        const LogLevel lvl = kv.second;
-        const std::string ident = EnvVarIdentFromModuleKey(mod_key);
-        if (ident.empty()) continue;
+            const std::string env_name = ident + "_LOGLEVEL";
+            const std::string env_val  = std::to_string(static_cast<int>(lvl));
+            ::setenv(env_name.c_str(), env_val.c_str(), 1);
+            std::ostringstream oss;
+            if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
+            oss << "EWTS NGEN env var " << env_name << " set to " << LevelToFixedString(lvl) << '\n';
+            std::cout << oss.str() << std::flush;
+        }
+    } else {
+        ::unsetenv(kEnvUseNgenBridge);
+        ::unsetenv(kEnvEwtsEnabled);
 
-        const std::string env_name = ident + "_LOGLEVEL";
-        const std::string env_val  = std::to_string(static_cast<int>(lvl));
-        ::setenv(env_name.c_str(), env_val.c_str(), 1);
-        // Build string first to minimize risk of stdout buffer interleaving during mpi runs
-        std::ostringstream oss;
-        if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
-        oss << "EWTS NGEN env var " << env_name << " set to " << LevelToFixedString(lvl) << '\n';
-        std::cout << oss.str() << std::flush;
+        for (const auto& kv : moduleLogLevels) {
+            const std::string ident = EnvVarIdentFromModuleKey(kv.first);
+            if (ident.empty()) continue;
 
+            const std::string env_name = ident + "_LOGLEVEL";
+            ::unsetenv(env_name.c_str());
+            std::ostringstream oss;
+            if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank << "] ";
+            oss << "EWTS NGEN env var " << env_name << " unset\n";
+            std::cout << oss.str() << std::flush;
+        }
     }
 }
 
@@ -393,12 +409,7 @@ std::string Logger::GetStandaloneBaseDir() {
         return std::string(ewts_log_dir);
     }
 
-    const std::string home = GetHomeDir();
-    if (!home.empty() && home != ".") {
-        return JoinPath(home, kDefaultRunLogsDirName);
-    }
-
-    return JoinPath(".", kDefaultRunLogsDirName);
+    return "";
 }
 
 void Logger::SetupLogFile(const std::string& resultsDir) {
@@ -411,6 +422,12 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         logFileDir = GetStandaloneBaseDir();
     }
 
+    if (logFileDir.empty()) {
+        logFilePath.clear();
+        std::cout << "EWTS NGEN using stdout logging\n" << std::flush;
+        return;
+    }
+
     (void)CreateDirectory(logFileDir);
 
     if (splitLogsByModule) {
@@ -419,9 +436,9 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
         logFilePath.clear();
 
         // Build string first to minimize risk of stdout buffer interleaving during mpi runs
-        if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
         oss.str("");     // clear the contents
         oss.clear();     // reset stream state flags
+        if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
         oss << "EWTS NGEN split log files under " << logFileDir << '\n';
         std::cout << oss.str() << std::flush;
         return;
@@ -456,13 +473,15 @@ void Logger::SetupLogFile(const std::string& resultsDir) {
     const std::string filename = stem + rank_part + ts_part + ".log";
     logFilePath = JoinPath(logFileDir, filename);
 
-    // Open file (append)
+    // Open file in truncate mode. The calibration job runs ngen
+    // iteratively, and only the logs from the most recent ngen
+    // run should be retained.
     logFile.open(logFilePath.c_str(), std::ios::out | std::ios::trunc);
 
     // Build string to minimize risk of buffer interleaving during mpi runs
-    if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
     oss.str("");     // clear the contents
     oss.clear();     // reset stream state flags
+    if (g_mpiRank >= 0) oss << "[rank " << g_mpiRank <<  "] ";
     oss << "EWTS NGEN log file " << logFilePath << '\n';
     std::cout << oss.str() << std::flush;
 }

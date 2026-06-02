@@ -228,23 +228,16 @@ static void open_standalone_file(ewts_logger_state* st) {
     char log_dir[1024];
     char ts[32];
     const char* dir;
-    const char* home;
     int n;
 
     if (st->file) return;
 
     dir = getenv(EV_EWTS_LOG_DIR);
-    if (dir && dir[0] != '\0') {
-        snprintf(log_dir, sizeof(log_dir), "%s", dir);
-    } else {
-        home = getenv("HOME");
-        if (home && home[0] != '\0') {
-            snprintf(log_dir, sizeof(log_dir), "%s/run_logs", home);
-        } else {
-            snprintf(log_dir, sizeof(log_dir), "./run_logs");
-        }
+    if (!(dir && dir[0] != '\0')) {
+        st->file = stdout;
+        return;
     }
-
+    snprintf(log_dir, sizeof(log_dir), "%s", dir);
     (void)mkdir_p(log_dir);
     utc_timestamp_compact(ts, sizeof(ts));
 
