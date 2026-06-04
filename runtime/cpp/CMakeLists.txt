@@ -14,6 +14,10 @@ target_include_directories(ewts_cpp
 
 target_compile_features(ewts_cpp PUBLIC cxx_std_17)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+    target_link_libraries(ewts_cpp PUBLIC stdc++fs)
+endif()
+
 set_target_properties(ewts_cpp PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )
