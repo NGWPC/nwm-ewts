@@ -106,7 +106,9 @@ class Logger {
     
 };
 
-// Placed here to ensure the class is declared before setting this preprocessor symbol
+// Placed here to ensure the class is declared before setting these preprocessor symbols
 #define LOG Logger::Log
+#define GetLogLevel() Logger::GetLogger()->GetLogLevel()
+#define IsLoggingEnabled() Logger::GetLogger()->IsLoggingEnabled()
 
 #endif /* EWTS_NGEN_LOGGER_HPP */
