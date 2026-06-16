@@ -6,7 +6,7 @@ Public API:
 """
 # This unused-looking import is deliberate — it’s part of the public API.
 from ._version import __version__, NGWPC_VERSION
-from .logger import EwtsLogger, setup_logger, get_logger, bind_logger, reset_logger, configure_existing_logger # noqa: F401
+from .logger import EwtsLogger, setup_logger, get_logger, reset_logger, configure_existing_logger # noqa: F401
 from .data_payloads import (  # noqa: F401
     LogParts,
     Payload,
