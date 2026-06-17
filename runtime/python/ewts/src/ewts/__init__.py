@@ -22,7 +22,7 @@ for _name in dir(_modules):
         globals()[_name] = getattr(_modules, _name)
 
 __all__ = (
-    ["__version__", "NGWPC_VERSION", "EwtsLogger", "get_logger", "setup_logger", "bind_logger", "reset_logger", "configure_existing_logger",
+    ["__version__", "NGWPC_VERSION", "EwtsLogger", "get_logger", "setup_logger", "get_logger", "reset_logger", "configure_existing_logger",
     "LogParts",
     "Payload",
     "Status",
