@@ -26,6 +26,7 @@ enum class LogLevel : int {
     WARNING = 30,
     SEVERE  = 40,
     FATAL   = 50,
+    STATUS  = 60
 };
 
 class Logger {
