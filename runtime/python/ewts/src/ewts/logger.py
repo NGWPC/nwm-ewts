@@ -361,146 +361,63 @@ class EwtsLogger:
         return self._logger.hasHandlers()
 
 
-class BoundEwtsLoggerProxy:
-    """
-    Proxy returned by get_logger() so module-level logger creation does not
-    trigger EWTS initialization during import time.
 
-    The real EwtsLogger is created only when bind() is called explicitly.
-    """
-
-    def __init__(self, ewts_id: str):
-        self.ewts_id = ewts_id.upper()
-        self._real_logger: Optional[EwtsLogger] = None
-
-    def bind(self) -> EwtsLogger:
-        if self._real_logger is None:
-            self._real_logger = EwtsLogger(self.ewts_id)
-        return self._real_logger
-
-    def is_bound(self) -> bool:
-        return self._real_logger is not None
-    
-    def get_bound_logger(self) -> EwtsLogger:
-        if self._real_logger is None:
-            raise RuntimeError(
-                f"EWTS logger {self.ewts_id} has not been bound yet."
-            )
-        return self._real_logger
-
-    def reset(self) -> None:
-        name = f"ewts.{self.ewts_id}"
-        py_logger = logging.getLogger(name)
-
-        for h in list(py_logger.handlers):
-            py_logger.removeHandler(h)
-            try:
-                h.close()
-            except Exception:
-                pass
-
-        py_logger.filters.clear()
-        py_logger.setLevel(logging.NOTSET)
-        py_logger.propagate = True
-        py_logger.disabled = False
-
-        self._real_logger = None
-        _init_printed.discard(self.ewts_id)
-
-    def _require_bound(self) -> EwtsLogger:
-        if self._real_logger is None:
-            raise RuntimeError(
-                f"EWTS logger {self.ewts_id} has not been bound yet. "
-                f"Call ewts.bind_logger('{self.ewts_id}') or LOG.bind() "
-                f"from the runtime entry point before logging."
-            )
-        return self._real_logger
-
-    def __getattr__(self, name):
-        return getattr(self._require_bound(), name)
-
-    @property
-    def handlers(self):
-        return self._require_bound().handlers
-
-    @property
-    def name(self) -> str:
-        return self._require_bound().name
-
-    @property
-    def propagate(self) -> bool:
-        return self._require_bound().propagate
-
-    @propagate.setter
-    def propagate(self, value: bool) -> None:
-        self._require_bound().propagate = value
-
-    def addHandler(self, handler: logging.Handler) -> None:
-        self._require_bound().addHandler(handler)
-
-    def removeHandler(self, handler: logging.Handler) -> None:
-        self._require_bound().removeHandler(handler)
-
-    def setLevel(self, level: int) -> None:
-        self._require_bound().setLevel(level)
-
-    def getEffectiveLevel(self) -> int:
-        return self._require_bound().getEffectiveLevel()
-
-    def isEnabledFor(self, level: int) -> bool:
-        return self._require_bound().isEnabledFor(level)
-
-    def hasHandlers(self) -> bool:
-        return self._require_bound().hasHandlers()
+_LOGGER_CACHE: Dict[str, EwtsLogger] = {}
 
 
-_LOGGER_CACHE: Dict[str, BoundEwtsLoggerProxy] = {}
+def _reset_python_logger(py_logger: logging.Logger) -> None:
+    for h in list(py_logger.handlers):
+        py_logger.removeHandler(h)
+        try:
+            h.close()
+        except Exception:
+            pass
+
+    py_logger.filters.clear()
+    py_logger.setLevel(logging.NOTSET)
+    py_logger.propagate = True
+    py_logger.disabled = False
 
 
-def get_logger(module_key_or_ewts_id: str) -> BoundEwtsLoggerProxy:
-    """Return a cached logger keyed by ewts_id."""
+def get_logger(module_key_or_ewts_id: str) -> EwtsLogger:
+    """Return a cached, initialized EWTS logger keyed by ewts_id."""
     ewts_id = _resolve_ewts_id(module_key_or_ewts_id)
     lg = _LOGGER_CACHE.get(ewts_id)
     if lg is not None:
         return lg
-    lg = BoundEwtsLoggerProxy(ewts_id)
+    lg = EwtsLogger(ewts_id)
     _LOGGER_CACHE[ewts_id] = lg
     return lg
 
 
-def bind_logger(module_key_or_ewts_id: str) -> EwtsLogger:
-    """
-    Explicitly initialize and bind the logger for the given ewts_id.
-    Safe to call multiple times; it returns the same bound logger per process.
-    """
-    return get_logger(module_key_or_ewts_id).bind()
-
-
 def reset_logger(module_key_or_ewts_id: str) -> None:
-    get_logger(module_key_or_ewts_id).reset()
+    ewts_id = _resolve_ewts_id(module_key_or_ewts_id)
+    _LOGGER_CACHE.pop(ewts_id, None)
+    _reset_python_logger(logging.getLogger(f"ewts.{ewts_id}"))
+    _init_printed.discard(ewts_id)
 
-    
+    # Also reset a same-named application logger when used with
+    # configure_existing_logger(logging.getLogger("TROUTE")).
+    _reset_python_logger(logging.getLogger(ewts_id))
+
+
 def setup_logger(
     module_key_or_ewts_id: str,
     *,
+    enabled: bool | None = None,
     level: str | int | None = None,
     log_dir: str | Path | None = None,
     log_file_name: str | None = None,
-    running_in_ngen: bool | None = None,
-    enabled: bool | None = None,
-    bind_now: bool = False,
-) -> BoundEwtsLoggerProxy | EwtsLogger:
-    """
-    Configure runtime overrides for an EWTS logger.
-
-    This does not have to bind immediately. For ngen/BMI use, callers can
-    leave bind=False and explicitly call bind_logger() later during init.
-    For standalone manager scripts, bind=True is convenient.
-    """
+    running_in_ngen: bool | None = None
+) -> EwtsLogger:
+    """Configure runtime overrides and return an initialized EWTS logger."""
     ewts_id = _resolve_ewts_id(module_key_or_ewts_id)
     parsed_level = parse_log_level(level) if level is not None else None
 
+    # Clear any possible existing loggers of the same name
     reset_logger(ewts_id)
+
+    # Load the config overrides for this logger id
     set_runtime_override(
         ewts_id,
         running_in_ngen=running_in_ngen,
@@ -510,9 +427,8 @@ def setup_logger(
         log_file_name=log_file_name,
     )
 
-    if bind_now:
-        return bind_logger(ewts_id)
-
+    # Initialize logger with values set in the config dictionary for this
+    # ewts_id when load_config is called during the class initializtion
     return get_logger(ewts_id)
 
 def configure_existing_logger(logger: logging.Logger) -> logging.Logger:
