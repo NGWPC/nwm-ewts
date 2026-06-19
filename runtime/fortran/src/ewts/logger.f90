@@ -12,6 +12,7 @@ module logger
   integer, parameter, public :: EWTS_WARNING = 30
   integer, parameter, public :: EWTS_SEVERE  = 40
   integer, parameter, public :: EWTS_FATAL   = 50
+  integer, parameter, public :: EWTS_STATUS  = 60
 
   character(len=64) :: prefix
   character(len=16) :: val
@@ -110,6 +111,7 @@ contains
     case ("WARN","WARNING"); parse_level = EWTS_WARNING
     case ("ERROR","SEVERE"); parse_level = EWTS_SEVERE
     case ("FATAL","CRITICAL"); parse_level = EWTS_FATAL
+    case ("STATUS"); parse_level = EWTS_STATUS
     case ("NOTSET","NONE"); parse_level = EWTS_NOTSET
     case default; parse_level = EWTS_NOTSET
     end select
@@ -124,6 +126,7 @@ contains
     case (EWTS_WARNING); level_name_padded = "WARNING"
     case (EWTS_SEVERE); level_name_padded = "SEVERE "
     case (EWTS_FATAL); level_name_padded = "FATAL  "
+    case (EWTS_STATUS); level_name_padded = "STATUS "
     case default; level_name_padded = "NOTSET "
     end select
   end function level_name_padded

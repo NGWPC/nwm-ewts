@@ -111,6 +111,7 @@ static LogLevel parse_level(const char* v) {
     if (streq_ci(s, "WARN") || streq_ci(s, "WARNING")) return WARNING;
     if (streq_ci(s, "ERROR") || streq_ci(s, "SEVERE")) return SEVERE;
     if (streq_ci(s, "FATAL") || streq_ci(s, "CRITICAL")) return FATAL;
+    if (streq_ci(s, "STATUS") || streq_ci(s, "STATUS")) return STATUS;
     if (streq_ci(s, "NOTSET") || streq_ci(s, "NONE")) return NOTSET;
 
     return NOTSET;
@@ -124,6 +125,7 @@ static const char* level_name_padded(LogLevel lvl) {
         case WARNING: return "WARNING";
         case SEVERE:  return "SEVERE ";
         case FATAL:   return "FATAL  ";
+        case STATUS:  return "STATUS ";
         default:      return "NOTSET ";
     }
 }
