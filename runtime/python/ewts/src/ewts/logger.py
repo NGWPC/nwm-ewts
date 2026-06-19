@@ -37,6 +37,18 @@ except Exception:
         "STATUS": 60,
     }
 
+def _status(self, msg, *args, **kwargs) -> None:
+    self.log(LEVELS.get("STATUS", 60), msg, *args, **kwargs)
+
+if not hasattr(logging.Logger, "status"):
+    logging.Logger.status = _status # type: ignore[attr-defined]
+
+def _perform(self, msg, *args, **kwargs) -> None:
+    self.log(LEVELS.get("PERFORM", 15), msg, *args, **kwargs)
+
+if not hasattr(logging.Logger, "perform"):
+    logging.Logger.perform = _perform # type: ignore[attr-defined]
+
 # Reverse lookup for printing level names
 _LEVEL_NAMES = {v: k for k, v in LEVELS.items()}
 
