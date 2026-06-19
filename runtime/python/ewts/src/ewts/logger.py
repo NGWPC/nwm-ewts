@@ -14,8 +14,9 @@ from .log_levels import parse_log_level
 from .paths import make_log_path
 from .module_keys import EWTS_ID_TO_KEYS
 
-# Register EWTS PERFORM level with Python logging
+# Register EWTS PERFORM, STATUS levels with Python logging
 logging.addLevelName(15, "PERFORM")
+logging.addLevelName(60, "STATUS")
 
 try:
     from .module_keys import ewts_id_from_key
@@ -33,7 +34,20 @@ except Exception:
         "WARNING": 30,
         "SEVERE": 40,
         "FATAL": 50,
+        "STATUS": 60,
     }
+
+def _status(self, msg, *args, **kwargs) -> None:
+    self.log(LEVELS.get("STATUS", 60), msg, *args, **kwargs)
+
+if not hasattr(logging.Logger, "status"):
+    logging.Logger.status = _status # type: ignore[attr-defined]
+
+def _perform(self, msg, *args, **kwargs) -> None:
+    self.log(LEVELS.get("PERFORM", 15), msg, *args, **kwargs)
+
+if not hasattr(logging.Logger, "perform"):
+    logging.Logger.perform = _perform # type: ignore[attr-defined]
 
 # Reverse lookup for printing level names
 _LEVEL_NAMES = {v: k for k, v in LEVELS.items()}
@@ -255,6 +269,8 @@ class EwtsLogger:
 
     @staticmethod
     def _map_python_level_to_ewts(level: int) -> int:
+        if level >= LEVELS.get("STATUS", 60):
+            return LEVELS.get("STATUS", 60)
         if level >= logging.CRITICAL:
             return LEVELS.get("FATAL", 50)
         if level >= logging.ERROR:
@@ -316,6 +332,9 @@ class EwtsLogger:
 
     def fatal(self, msg, *args, **kwargs) -> None:
         self._logger.critical(msg, *args, **kwargs)
+
+    def status(self, msg, *args, **kwargs) -> None:
+        self._logger.log(LEVELS.get("STATUS", 60), msg, *args, **kwargs)
 
     # Aliases
     def error(self, msg, *args, **kwargs) -> None:

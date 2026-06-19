@@ -72,7 +72,8 @@ inline LogLevel ClampCanonicalLevel(int v) {
     if (v <= 20) return LogLevel::INFO;
     if (v <= 30) return LogLevel::WARNING;
     if (v <= 40) return LogLevel::SEVERE;
-    return LogLevel::FATAL;
+    if (v <= 50) return LogLevel::FATAL;
+    return LogLevel::STATUS;
 }
 
 inline LogLevel ParseLevel(const std::string& value) {
@@ -83,6 +84,7 @@ inline LogLevel ParseLevel(const std::string& value) {
     if (v == "warning" || v == "warn") return LogLevel::WARNING;
     if (v == "error" || v == "severe") return LogLevel::SEVERE;
     if (v == "fatal" || v == "critical") return LogLevel::FATAL;
+    if (v == "status") return LogLevel::STATUS;
     if (v == "notset" || v == "none") return LogLevel::NOTSET;
     // Also accept "10"/"20"... (handled earlier), but in case:
     if (IsDigitString(v)) return ClampCanonicalLevel(std::atoi(v.c_str()));
