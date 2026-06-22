@@ -7,8 +7,16 @@ extern "C" {
 
 void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
+void ewts_ngen_payload_status(const char* status,
+                              double prog,
+                              const char* msg,
+                              const char* modnm);
+
 #ifdef __cplusplus
 }
 #endif
+
+#define PAYLOAD_STATUS(status, prog, msg, modnm) \
+    ewts_ngen_payload_status((status), (prog), (msg), (modnm))
 
 #endif /* EWTS_NGEN_BRIDGE_H */

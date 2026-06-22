@@ -1,5 +1,5 @@
 module logger
-  use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
+  use, intrinsic :: iso_c_binding, only: c_char, c_int, c_double, c_null_char
   use iso_fortran_env, only: output_unit
   use ewts_log_levels, only: ewts_log_level_name
   implicit none
@@ -32,6 +32,7 @@ module logger
 
   public :: write_log, is_logger_enabled, get_log_level, logger_init
   public :: write_log_module, is_logger_enabled_module, get_log_level_module, logger_init_module
+  public :: payload_status
 
 #ifdef EWTS_HAVE_NGEN_BRIDGE
   interface
@@ -40,6 +41,16 @@ module logger
       character(kind=c_char), dimension(*) :: ewts_id
       integer(c_int), value :: level
       character(kind=c_char), dimension(*) :: message
+    end subroutine
+  end interface
+
+  interface
+    subroutine ewts_ngen_payload_status(status, prog, msg, modnm) bind(C, name="ewts_ngen_payload_status")
+        import :: c_char, c_double
+        character(kind=c_char), dimension(*) :: status
+        real(c_double), value :: prog
+        character(kind=c_char), dimension(*) :: msg
+        character(kind=c_char), dimension(*) :: modnm
     end subroutine
   end interface
 #endif
@@ -487,4 +498,24 @@ contains
     end if
   end subroutine write_log_module
 
+  subroutine payload_status(status, prog, msg, modnm)
+    use, intrinsic :: iso_c_binding, only: c_char, c_double, c_null_char
+    implicit none
+
+    character(len=*), intent(in) :: status
+    real(c_double), intent(in) :: prog
+    character(len=*), intent(in) :: msg
+    character(len=*), intent(in) :: modnm
+
+#ifdef EWTS_HAVE_NGEN_BRIDGE
+    if (is_ngen_active()) then
+      call ewts_ngen_payload_status( &
+        trim(status) // c_null_char, &
+        prog, &
+        trim(msg) // c_null_char, &
+        trim(modnm) // c_null_char)
+    end if
+#endif
+  end subroutine payload_status
+  
 end module logger

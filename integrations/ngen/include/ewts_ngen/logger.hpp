@@ -8,6 +8,10 @@
 #include <string>
 #include <unordered_map>
 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS // intentionally want the old behavior
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
 /*
  * NGEN integration logger.
  *
@@ -53,6 +57,15 @@ class Logger {
     bool IsLoggingEnabled() const { return loggingEnabled; }
     LogLevel GetLogLevel() const { return logLevel; }
 
+    
+    static void LogPayload(
+        const std::string& status,
+        double             prog,
+        const std::string& msg,
+        const std::string& modnm);
+
+    static bool LogPayload(const char* json_message);
+
   private:
     Logger() = default;
     ~Logger() = default;
@@ -90,6 +103,7 @@ class Logger {
     bool        loggingEnabled  = true;
     bool        splitLogsByModule = false;
 
+    // Normal EWTS/ngen log stream.
     std::fstream logFile;
     std::string  logFileDir;
     std::string  logFilePath;
@@ -102,6 +116,14 @@ class Logger {
 
     // config-derived per-module levels (stable key -> LogLevel)
     std::unordered_map<std::string, LogLevel> moduleLogLevels;
+
+    // Lazily opened payload stream.
+    // This is never split by module and is created only on first payload write.
+    std::ofstream payloadFile;
+    std::string payloadFilePath;
+
+    bool PayloadFileReady(void) const;
+    bool OpenPayloadFileIfNeeded(void);
 
     // environment
     
