@@ -7,10 +7,12 @@ extern "C" {
 
 void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
-void ewts_ngen_payload_status(const char* status,
-                              double prog,
-                              const char* msg,
-                              const char* modnm);
+void ewts_ngen_payload_status(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
 
 #ifdef __cplusplus
 }

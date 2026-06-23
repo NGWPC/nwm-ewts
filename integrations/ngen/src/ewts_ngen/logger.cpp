@@ -917,10 +917,11 @@ bool Logger::OpenPayloadFileIfNeeded(void) {
     return false;
 }
 
-bool Logger::LogPayload(const char* json_message)
+bool Logger::LogPayload(const char* ewts_id, const char* json_message)
 {
     if (!json_message) {
         LogPayload(
+            ewts_id,
             "ERROR",
             0.0,
             "Malformed payload: payload message is null",
@@ -932,6 +933,7 @@ bool Logger::LogPayload(const char* json_message)
 
     if (!extracted.ok) {
         LogPayload(
+            ewts_id,
             "ERROR",
             0.0,
             extracted.error_msg,
@@ -947,6 +949,7 @@ bool Logger::LogPayload(const char* json_message)
         boost::property_tree::read_json(ss, pt);
 
         LogPayload(
+            ewts_id,
             pt.get<std::string>("status", ""),
             pt.get<double>("prog", 0.0),
             pt.get<std::string>("msg", ""),
@@ -957,6 +960,7 @@ bool Logger::LogPayload(const char* json_message)
     catch (const boost::property_tree::json_parser_error& e)
     {
         LogPayload(
+            ewts_id,
             "ERROR",
             0.0,
             std::string("Malformed payload JSON: ") + e.what(),
@@ -966,6 +970,7 @@ bool Logger::LogPayload(const char* json_message)
     catch (const boost::property_tree::ptree_error& e)
     {
         LogPayload(
+            ewts_id,
             "ERROR",
             0.0,
             std::string("Malformed payload fields: ") + e.what(),
@@ -974,10 +979,12 @@ bool Logger::LogPayload(const char* json_message)
     }
 }
 
-void Logger::LogPayload(const std::string& status,
-                        double prog,
-                        const std::string& msg,
-                        const std::string& modnm)
+void Logger::LogPayload(
+    const char* ewts_id,
+    const std::string& status,
+    double prog,
+    const std::string& msg,
+    const std::string& modnm)
 {
     Logger* logger = GetLogger();
 
@@ -1001,7 +1008,18 @@ void Logger::LogPayload(const std::string& status,
         json.pop_back();
     }
 
+    const std::string module_name =
+    (ewts_id && std::strlen(ewts_id) > 0)
+        ? std::string(ewts_id)
+        : logger->ewtsId;
+
+    const std::string prefix =
+        CreateTimestamp(true, true) + " " +
+        PadEwtsId(module_name) + " " +
+        LevelToFixedString(LogLevel::STATUS) + " ";
+
     const std::string record =
+        prefix +
         std::string(kPayloadBeginSentinel) +
         json +
         std::string(kPayloadEndSentinel) +

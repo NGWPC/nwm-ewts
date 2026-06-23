@@ -59,12 +59,15 @@ class Logger {
 
     
     static void LogPayload(
+        const char* ewts_id,
         const std::string& status,
         double             prog,
         const std::string& msg,
         const std::string& modnm);
 
-    static bool LogPayload(const char* json_message);
+    static bool LogPayload(
+        const char* ewts_id,
+        const char* json_message);
 
   private:
     Logger() = default;
