@@ -45,8 +45,9 @@ module logger
   end interface
 
   interface
-    subroutine ewts_ngen_payload_status(status, prog, msg, modnm) bind(C, name="ewts_ngen_payload_status")
+    subroutine ewts_ngen_payload_status(ewts_id, status, prog, msg, modnm) bind(C, name="ewts_ngen_payload_status")
         import :: c_char, c_double
+        character(kind=c_char), dimension(*) :: ewts_id
         character(kind=c_char), dimension(*) :: status
         real(c_double), value :: prog
         character(kind=c_char), dimension(*) :: msg
@@ -498,10 +499,11 @@ contains
     end if
   end subroutine write_log_module
 
-  subroutine payload_status(status, prog, msg, modnm)
+  subroutine payload_status(ewts_id, status, prog, msg, modnm)
     use, intrinsic :: iso_c_binding, only: c_char, c_double, c_null_char
     implicit none
 
+    character(len=*), intent(in) :: ewts_id
     character(len=*), intent(in) :: status
     real(c_double), intent(in) :: prog
     character(len=*), intent(in) :: msg
@@ -510,6 +512,7 @@ contains
 #ifdef EWTS_HAVE_NGEN_BRIDGE
     if (is_ngen_active()) then
       call ewts_ngen_payload_status( &
+        ewts_id, &
         trim(status) // c_null_char, &
         prog, &
         trim(msg) // c_null_char, &

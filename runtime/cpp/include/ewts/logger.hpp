@@ -66,14 +66,16 @@ void Log(LogLevel level, const char* fmt, ...);
 void Log(std::string_view message, LogLevel level);
 
 
-void PayloadStatus(const char* status,
-                   double prog,
-                   const char* msg,
-                   const char* modnm);
+void PayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
 
 } // namespace ewts
 
-#define PAYLOAD_STATUS(status, prog, msg, modnm) \
-    ::ewts::PayloadStatus((status), (prog), (msg), (modnm))
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    ::ewts::PayloadStatus((ewts_id), (status), (prog), (msg), (modnm))
 
 #endif
