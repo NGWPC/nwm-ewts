@@ -158,6 +158,7 @@ inline std::string PrependLogFilePrefix(const std::string& baseName) {
 
 static constexpr const char* kPayloadBeginSentinel = "<MSG_DATA>";
 static constexpr const char* kPayloadEndSentinel = "</MSG_DATA>";
+
 struct PayloadExtractResult {
     bool ok = false;
     std::string json;
@@ -1000,11 +1001,17 @@ void Logger::LogPayload(const std::string& status,
         json.pop_back();
     }
 
-    logger->payloadFile
-        << kPayloadBeginSentinel
-        << json
-        << kPayloadEndSentinel
-        << std::endl;
+    const std::string record =
+        std::string(kPayloadBeginSentinel) +
+        json +
+        std::string(kPayloadEndSentinel) +
+        "\n";
 
-    logger->payloadFile.flush();
+    static std::mutex payloadLogMutex;
+    {
+        std::lock_guard<std::mutex> lock(payloadLogMutex);
+
+        logger->payloadFile << record;
+        logger->payloadFile.flush();
+    }
 }
