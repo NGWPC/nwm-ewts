@@ -29,6 +29,15 @@ void EwtsLogModule(const char* ewts_id, LogLevel level, const char* fmt, ...);
 LogLevel EwtsGetLogLevelModule(const char* ewts_id);
 bool EwtsIsLoggingEnabledModule(const char* ewts_id);
 
+
+void EwtsPayloadStatus(const char* status,
+                       double prog,
+                       const char* msg,
+                       const char* modnm);
+
+#define PAYLOAD_STATUS(status, prog, msg, modnm) \
+    EwtsPayloadStatus((status), (prog), (msg), (modnm))
+    
 #ifdef __cplusplus
 }
 #endif

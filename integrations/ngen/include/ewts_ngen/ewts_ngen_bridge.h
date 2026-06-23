@@ -16,7 +16,4 @@ void ewts_ngen_payload_status(const char* status,
 }
 #endif
 
-#define PAYLOAD_STATUS(status, prog, msg, modnm) \
-    ewts_ngen_payload_status((status), (prog), (msg), (modnm))
-
 #endif /* EWTS_NGEN_BRIDGE_H */

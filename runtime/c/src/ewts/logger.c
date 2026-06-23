@@ -18,6 +18,14 @@ __attribute__((weak))
 #endif
 void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
+#endif
+void ewts_ngen_payload_status(const char* status,
+                              double prog,
+                              const char* msg,
+                              const char* modnm);
+
 #define EV_NGEN_RESULTS_DIR "NGEN_RESULTS_DIR"
 #define EV_EWTS_ENABLED     "EWTS_ENABLED"
 #define EV_EWTS_LOG_DIR     "EWTS_LOG_DIR"
@@ -463,4 +471,14 @@ LogLevel GetLogLevel(void) {
 
 bool IsLoggingEnabled(void) {
     return EwtsIsLoggingEnabledModule("EWTS");
+}
+
+void EwtsPayloadStatus(const char* status,
+                       double prog,
+                       const char* msg,
+                       const char* modnm)
+{
+    if (is_ngen_active() && ewts_ngen_payload_status) {
+        ewts_ngen_payload_status(status, prog, msg, modnm);
+    }
 }
