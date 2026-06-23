@@ -512,7 +512,7 @@ contains
 #ifdef EWTS_HAVE_NGEN_BRIDGE
     if (is_ngen_active()) then
       call ewts_ngen_payload_status( &
-        ewts_id, &
+        trim(ewts_id) // c_null_char, &
         trim(status) // c_null_char, &
         prog, &
         trim(msg) // c_null_char, &
