@@ -61,9 +61,9 @@ class Logger {
     static void LogPayload(
         const char* ewts_id,
         const std::string& status,
-        double             prog,
-        const std::string& msg,
-        const std::string& modnm);
+        double             prog=0,
+        const std::string& msg=std::string(),
+        const std::string& modnm=std::string());
 
     static bool LogPayload(
         const char* ewts_id,
