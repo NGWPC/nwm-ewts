@@ -215,6 +215,26 @@ inline PayloadExtractResult ExtractJsonPayload(const char* message)
     return result;
 }
 
+inline std::string EscapeJson(const std::string& s)
+{
+    std::string out;
+
+    for (char c : s)
+    {
+        switch (c)
+        {
+        case '"':  out += "\\\""; break;
+        case '\\': out += "\\\\"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        default:   out += c;
+        }
+    }
+
+    return out;
+}
+
 } // namespace
 
 Logger* Logger::GetLogger() {
@@ -992,21 +1012,13 @@ void Logger::LogPayload(
         return;
     }
 
-    boost::property_tree::ptree pt;
-    pt.put("status", status);
-    pt.put("prog", prog);
-    pt.put("msg", msg);
-    pt.put("modnm", modnm);
-
-    std::ostringstream payload;
-    boost::property_tree::write_json(payload, pt, false);
-
-    std::string json = payload.str();
-
-    // boost::property_tree::write_json usually appends a trailing newline.
-    while (!json.empty() && (json.back() == '\n' || json.back() == '\r')) {
-        json.pop_back();
-    }
+    std::ostringstream json;
+    json << '{'
+        << "\"status\":\"" << EscapeJson(status) << "\","
+        << "\"prog\":" << std::defaultfloat << prog << ","
+        << "\"msg\":\"" << EscapeJson(msg) << "\","
+        << "\"modnm\":\"" << EscapeJson(modnm) << "\""
+        << '}';
 
     const std::string module_name =
     (ewts_id && std::strlen(ewts_id) > 0)
@@ -1021,7 +1033,7 @@ void Logger::LogPayload(
     const std::string record =
         prefix +
         std::string(kPayloadBeginSentinel) +
-        json +
+        json.str() +
         std::string(kPayloadEndSentinel) +
         "\n";
 
