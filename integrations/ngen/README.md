@@ -1,56 +1,69 @@
 # EWTS ngen Integration
 
-This directory contains the developer-facing documentation for the EWTS `ngen`
-integration layer.
+The `integrations/ngen/` layer routes EWTS runtime messages from C, C++,
+Fortran, and Python through a shared `ngen`-aware logger.
 
-The integration provides the bridge that allows EWTS language-specific Runtime Libraries in C,
-C++, Fortran, and Python to route messages through a shared `ngen`-aware logger.
+## Responsibilities
 
-## Directory role
+The `ngen` integration layer:
 
-The `integrations/ngen/` code is responsible for:
+- reads `ngen_logging.json` when `NGEN_RESULTS_DIR` is set
+- determines effective module log levels
+- exports `EWTS_ENABLED` and `<MODULE>_LOGLEVEL` environment variables
+- formats standard log records
+- supports unified and split-by-module log files
+- creates one log file per MPI rank
+- writes structured STATUS payload records to a dedicated payload log file
 
-- detecting whether `ngen` integration is active
-- loading configuration from `ngen_logging.json`
-- determining effective module log levels
-- exporting environment settings needed by downstream Runtime Libraries
-- selecting output files under `NGEN_RESULTS_DIR/logs/`
-- preserving per-rank separation in MPI runs
+## Bridge API
 
-## Initialization behavior
+```c
+void ewts_ngen_log(
+    const char* ewts_id,
+    int level,
+    const char* message);
 
-The integration logger uses lazy initialization.
-
-On the first logging call, it performs work such as:
-
-1. checking for `NGEN_RESULTS_DIR`
-2. locating and reading `ngen_logging.json`
-3. resolving effective log levels
-4. determining the MPI rank when MPI is initialized
-5. opening the appropriate output file or files
-
-This avoids requiring an explicit logger initialization call from `ngen`.
-
-## File layout modes
-
-EWTS supports two file layout modes under `ngen`.
-
-### Unified mode
-
-All log messages for a rank are written to one file:
-
-```text
-logs/ngen_rank_0.log
+void ewts_ngen_payload_status(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
 ```
 
-### Split-by-module mode
+`ewts_ngen_log(...)` is used for standard runtime log messages. If `level` is
+`STATUS`, the message is treated as a payload message.
 
-When enabled, each rank writes separate files by module:
+`ewts_ngen_payload_status(...)` is used by C, C++, and Fortran runtime helpers to
+write structured payloads directly.
+
+## Initialization
+
+The `ngen` logger initializes on the first log or payload call. Initialization:
+
+1. checks `NGEN_RESULTS_DIR`
+2. determines MPI rank when MPI is initialized
+3. reads `ngen_logging.json` when available
+4. exports runtime environment variables
+5. opens the standard log file when needed
+6. opens the payload log file on receipt of the first payload message
+
+No explicit logger initialization call is required from `ngen`.
+
+## Standard log files
+
+Unified mode writes one standard log file per rank:
 
 ```text
-logs/cfe_rank_0.log
-logs/noahowp_rank_0.log
-logs/smp_rank_0.log
+ngen_mpi_process_<rank>.log
+```
+
+Split-by-module mode writes one standard log file per EWTS ID per rank:
+
+```text
+cfe_mpi_process_<rank>.log
+noahowp_mpi_process_<rank>.log
+ueb_bmi_mpi_process_<rank>.log
 ```
 
 Enable split mode with:
@@ -61,26 +74,109 @@ Enable split mode with:
 }
 ```
 
-## Runtime behavior summary
+If `NGEN_LOG_FILE_PREFIX` is set, the prefix is prepended to the file stem.
 
-When `NGEN_RESULTS_DIR` is set, the integration layer becomes the owner of
-logging policy. Runtime libraries still create and forward messages, but final
-formatting, location, and file naming are controlled here.
+## Payload log file
 
-If `NGEN_RESULTS_DIR` is not set, Runtime Libraries fall back to standalone logging
-behavior.
+Payload records are written to one payload file per rank:
+
+```text
+ngen_payload_mpi_process_<rank>.log
+```
+
+The payload file is not split by module. It is created only after the first
+payload message is received.
+
+If `NGEN_LOG_FILE_PREFIX` is set, the prefix is prepended to the payload file
+stem.
+
+## Payload record format
+
+Payload records are formatted like standard log records:
+
+```text
+timestamp EWTS_ID STATUS  <MSG_DATA>{json}</MSG_DATA>
+```
+
+Example:
+
+```text
+2026-06-23T23:42:36.219Z NOAHOWP STATUS  <MSG_DATA>{"status":"INITIALIZING","prog":"0.10000000000000001","msg":"Initializing NOAHOWP BMI","modnm":"NOAHOWP"}</MSG_DATA>
+```
+
+The JSON payload contains:
+
+| Field | Meaning |
+|---|---|
+| `status` | Payload status value |
+| `prog` | Progress value |
+| `msg` | Human-readable message |
+| `modnm` | Module/component name |
+
+The `<MSG_DATA>` and `</MSG_DATA>` sentinels are retained for downstream payload
+consumers.
+
+## STATUS messages from Python
+
+Python modules can emit payload records by logging a STATUS message containing
+sentinel-wrapped JSON:
+
+```python
+import json
+
+LOG.status(
+    "<MSG_DATA>"
+    + json.dumps(
+        {
+            "status": "INITIALIZING",
+            "prog": 0.1,
+            "msg": "Creating network of type NHF",
+            "modnm": "t-route",
+        },
+        separators=(",", ":"),
+    )
+    + "</MSG_DATA>"
+)
+```
+
+The bridge extracts the JSON, validates it, and writes the payload record to the
+payload log.
+
+## Structured payload calls from C, C++, and Fortran
+
+C and C++ runtimes expose:
+
+```c
+PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm)
+```
+
+The Fortran runtime exposes:
+
+```fortran
+call payload_status(ewts_id, status, prog, msg, modnm)
+```
+
+All of these paths call `ewts_ngen_payload_status(...)` and produce the same
+payload log format.
+
+## Malformed payload handling
+
+If a STATUS payload message is malformed, the bridge writes an ERROR payload
+record instead of dropping the message. Missing sentinels and invalid JSON are
+reported in the payload `msg` field.
 
 ## Build
 
 Configure EWTS with `ngen` support enabled:
 
 ```bash
-cmake -B cmake_buld -S . -DEWTS_WITH_NGEN=ON
-cmake --build cmake_buld -j
+cmake -B cmake_build -S . -DEWTS_WITH_NGEN=ON
+cmake --build cmake_build -j
 ```
 
 ## Related documentation
 
-- user-facing overview: `docs/integrations/ngen.md`
-- framework configuration: `docs/architecture/configuration.md`
-- top-level repository context: `README.md`
+- `runtime/c/README.md`
+- `runtime/cpp/README.md`
+- `runtime/fortran/README.md`
+- `runtime/python/README.md`

@@ -1,132 +1,310 @@
-# EWTS — Error and Warning Trapping System
+# EWTS
 
-EWTS is a multi-language logging framework for hydrologic modules running either
-within `ngen` or as standalone applications. It provides consistent log levels,
-module identity handling, environment-driven configuration, and a common bridge
-model across C, C++, Fortran, and Python.
+## Error Warning and Trapping System
 
-Under `ngen`, EWTS routes log messages through the `ngen` integration layer so
-configuration, formatting, and output location are controlled centrally. In
-standalone mode, each runtime applies the same general policy while handling its
-own file output.
+EWTS is a cross-language logging and status reporting framework used by
+hydrologic and environmental modeling applications and components that
+support running them. EWTS provides consistent log levels, module
+identity handling, environment-driven configuration, and a common
+logging API for Python, C, C++, and Fortran components while allowing
+each language to retain idiomatic interfaces.
 
-## Repository purpose
+EWTS supports standalone applications as well as integration with ngen,
+providing MPI-aware logging, configurable log levels, and structured
+status payload messages.
 
-This repository provides:
+## Table of Contents
 
-- runtime logging libraries for C, C++, Fortran, and Python
-- the `ngen` integration bridge and logger implementation
-- generated module constants and log-level definitions
-- generator tooling that keeps constants synchronized across languages
-- MkDocs content for user-facing documentation
+-   [Features](#features)
+-   [Log Levels](#log-levels)
+-   [Runtime Libraries](#runtime-libraries)
+-   [STATUS Payload Logging](#status-payload-logging)
+-   [ngen Integration](#ngen-integration)
+-   [Building ngen with EWTS](#building-ngen-with-ewts)
+    -   [USE_EWTS=ON](#use_ewtson)
+    -   [USE_EWTS=OFF](#use_ewtsoff)
+    -   [Compile-Time Control](#compile-time-control)
+    -   [Python Components](#python-components)
+-   [Payload Log Files](#payload-log-files)
+-   [Documentation](#documentation)
+-   [Python](#python)
+-   [C and C++](#c-and-c)
+-   [Fortran](#fortran)
 
-## Logging model summary
+------------------------------------------------------------------------
 
-EWTS supports two execution contexts:
+------------------------------------------------------------------------
 
-1. **`ngen`-integrated logging**
-   - the `ngen` integration layer owns configuration and output policy
-   - logging configuration is read from `ngen_logging.json`
-   - output is written beneath `NGEN_RESULTS_DIR/logs/`
-   - files are generated per MPI rank
-   - output can be unified or split by module
+## Features
 
-2. **Standalone runtime logging**
-   - each language runtime writes its own log output
-   - runtime behavior is controlled by environment variables such as
-     `EWTS_ENABLED`, `EWTS_LOG_LEVEL`, and `EWTS_LOG_DIR`
-   - output falls back through `EWTS_LOG_DIR`, `$HOME/run_logs`, and `./run_logs`
+-   C, C++, and Fortran runtime libraries
+-   Python pacakge
+-   Common log levels across all languages
+-   Configurable module log levels
+-   MPI-aware logging
+-   Unified or split log files
+-   ngen integration
+-   Structured STATUS payload messages
+-   Dedicated payload log files
+-   Environment-based configuration
+-   External workflow and monitoring support
 
-## Repository layout
+------------------------------------------------------------------------
 
-```text
-runtime/
-  c/          C Runtime Library
-  cpp/        C++ Runtime Library
-  fortran/    Fortran Runtime Library
-  python/     Python package
-integrations/
-  ngen/       ngen bridge and logger integration
-spec/
-  module_registry.yaml
-  log_levels.json
-tools/
-  generate_language_constants.py
-docs/         MkDocs source
+## Log Levels
+
+  Level     Description
+  --------- ------------------------------------
+  DEBUG     Detailed diagnostic information
+  PERFORM   Performance and timing information
+  INFO      General informational messages
+  WARNING   Recoverable problems
+  SEVERE    Serious errors
+  FATAL     Unrecoverable errors
+  STATUS    Structured payload messages
+
+------------------------------------------------------------------------
+
+## Runtime Libraries
+
+EWTS provides runtime libraries for:
+
+-   Python
+-   C
+-   C++
+-   Fortran
+-   ngen integration
+
+Each runtime provides a native language API while preserving common log
+levels and behavior.
+
+------------------------------------------------------------------------
+
+## STATUS Payload Logging
+
+The STATUS log level provides structured status and progress
+information.
+
+Typical uses include:
+
+-   Model initialization
+-   Workflow progress reporting
+-   Calibration status
+-   External monitoring applications
+-   Real-time dashboards
+-   Machine-readable status updates
+
+Example payload:
+
+``` text
+<MSG_DATA>
+{
+    "status": "INITIALIZING",
+    "prog": 0.1,
+    "msg": "Initializing UEB",
+    "modnm": "ueb_bmi"
+}
+</MSG_DATA>
 ```
 
-## Build from the repository root
+When running under ngen, payload messages are written to a dedicated
+payload log file.
 
-```bash
-cmake -B cmake_buld -S . -DCMAKE_BUILD_TYPE=Release -DEWTS_WITH_NGEN=ON -DEWTS_BUILD_SHARED=ON
-cmake --build cmake_buld -j
+Example:
+
+``` text
+2026-06-23T23:42:36.210Z UEB_BMI STATUS <MSG_DATA>{"status":"INITIALIZING","prog":0.1,"msg":"Initializing UEB","modnm":"ueb_bmi"}</MSG_DATA>
 ```
 
-The top-level build compiles the native language-specific Runtime Libraries and builds the Python package.
+Payload records are intended primarily for machine consumption but may
+also be viewed directly.
 
-## Install
+------------------------------------------------------------------------
 
-```bash
-cmake --install cmake_buld --prefix /path/to/install
+## ngen Integration
+
+The ngen integration provides:
+
+-   MPI rank detection
+-   Unified log files
+-   Split module log files
+-   Per-module log levels
+-   Environment configuration
+-   STATUS payload logging
+-   Dedicated payload logs
+
+All C, C++, Fortran, and Python modules may log through a common ngen
+logger while preserving the originating EWTS identifier.
+
+------------------------------------------------------------------------
+
+## Payload Log Files
+
+Payload logs are created only when the first STATUS payload is received.
+
+Typical file names:
+
+``` text
+ngen_payload_mpi_process_0.log
+ngen_payload_mpi_process_1.log
 ```
 
-The install tree includes:
+Payload logs are written per MPI rank and are never split by module.
 
-- C Runtime Library and headers
-- C++ Runtime Library and headers
-- Fortran Runtime Library and module files
-- generated constants for supported languages
-- `ngen` integration library when enabled
-- CMake package configuration files
-- Python wheel output from the top-level build
+------------------------------------------------------------------------
 
-## Python runtime development
+## Documentation
 
-For direct Python development:
+Additional documentation is available in the runtime-specific READMEs.
 
-```bash
-pip install -e runtime/python/ewts
+``` text
+runtime/python/ewts/README.md
+runtime/c/README.md
+runtime/cpp/README.md
+runtime/fortran/README.md
+integrations/ngen/README.md
 ```
 
-To build a wheel manually:
+------------------------------------------------------------------------
 
-```bash
-python -m cmake_buld runtime/python/ewts
+## Python
+
+Python applications use the standard EWTS logger.
+
+``` python
+LOG.info("Initializing")
+
+LOG.status(
+    '<MSG_DATA>'
+    '{"status":"INITIALIZING",'
+    '"prog":0.1,'
+    '"msg":"Initializing model",'
+    '"modnm":"python"}'
+    '</MSG_DATA>'
+)
 ```
 
-## Generated constants
+------------------------------------------------------------------------
 
-EWTS uses specification files as the single source of truth for module metadata
-and log levels:
+## C and C++
 
-- `spec/module_registry.yaml`
-- `spec/log_levels.json`
+``` c
+LOG(INFO, "Initializing");
 
-Regenerate language-specific constants with:
-
-```bash
-python tools/generate_language_constants.py
+PAYLOAD_STATUS(
+    "INITIALIZING",
+    0.1,
+    "Initializing component",
+    "COMP");
 ```
 
-Generated files should be treated as derived artifacts and should not be edited
-by hand.
+------------------------------------------------------------------------
 
-## Documentation split
+## Fortran
 
-This repository uses two documentation audiences:
+``` fortran
+call write_log(
+    "Initializing model",
+    LOG_LEVEL_INFO)
 
-- `docs/` contains **user-facing MkDocs content** intended to explain the
-  framework, runtime behavior, and integration model.
-- directory-local `README.md` files contain **developer-facing documentation**
-  intended for contributors working in that part of the repository.
+call payload_status(
+    "INITIALIZING",
+    0.1d0,
+    "Initializing model",
+    "")
+```
 
-## Developer entry points
+# Building ngen with EWTS
 
-For implementation details, start with:
+The top-level `USE_EWTS` CMake option controls whether EWTS support is
+compiled into `ngen` and its supported submodules and components.
 
-- `runtime/c/README.md`
-- `runtime/cpp/README.md`
-- `runtime/fortran/README.md`
-- `runtime/python/README.md`
-- `integrations/ngen/README.md`
-- `tools/README.md`
+``` text
+-DUSE_EWTS=ON
+```
+
+or
+
+``` text
+-DUSE_EWTS=OFF
+```
+
+If `USE_EWTS` is not specified, it defaults to `ON`.
+
+## USE_EWTS=ON
+
+When `USE_EWTS=ON`:
+
+-   EWTS libraries are linked into ngen and participating submodules.
+-   Language-specific preprocessor definitions are enabled.
+-   Structured STATUS payload messages are available.
+-   STATUS messages are written to dedicated payload log files.
+-   Module log messages are written through the EWTS framework.
+-   ngen components may participate in unified MPI-aware logging.
+
+## USE_EWTS=OFF
+
+When `USE_EWTS=OFF`:
+
+-   EWTS libraries are not linked.
+-   EWTS-related code paths are excluded at compile time.
+-   All logging falls back to standard stdout logging.
+-   STATUS payload messages are not generated.
+-   Payload log files are not created.
+
+## Compile-Time Control
+
+Each ngen component controls EWTS support through its own build
+configuration.
+
+C and C++ modules use preprocessor definitions generated by their
+`CMakeLists.txt` files, for example:
+
+``` cmake
+if(USE_EWTS)
+    target_compile_definitions(cfebmi PRIVATE CFE_USE_EWTS)
+endif()
+```
+
+Fortran components similarly define module-specific compilation flags
+such as:
+
+``` text
+NOAHOWP_USE_EWTS
+SACSMA_USE_EWTS
+SNOW17_USE_EWTS
+```
+
+These definitions allow EWTS-specific code to be completely excluded
+from builds when EWTS support is disabled.
+
+## Python Components
+
+Python modules determine EWTS availability at runtime.
+
+The EWTS Python package must be importable:
+
+``` python
+try:
+    from ewts.helper import getenv_any
+    from ewts.logger import configure_existing_logger
+    FORCING_USE_EWTS = True
+except ImportError:
+    FORCING_USE_EWTS = False
+```
+
+If the package is available, the component checks the
+`EWTS_USE_NGEN_BRIDGE` environment variable.
+
+When both conditions are satisfied:
+
+-   The existing ngen logger is adopted.
+-   Log messages participate in the ngen EWTS framework.
+-   STATUS payload messages may be generated.
+
+If the package is unavailable, or if `EWTS_USE_NGEN_BRIDGE` is not
+enabled, Python components automatically fall back to standard stdout
+logging.
+
+This allows the same Python component to operate both inside and outside
+of ngen without requiring code changes.
