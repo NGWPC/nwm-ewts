@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include "ewts/payload_status.hpp"
 
 namespace ewts {
 
@@ -68,10 +69,10 @@ void Log(std::string_view message, LogLevel level);
 
 void PayloadStatus(
     const char* ewts_id,
-    const char* status,
-    double prog,
-    const char* msg,
-    const char* modnm);
+    const char* status=ewts::PAYLOAD_NULL,
+    double prog=-1.0,
+    const char* msg="",
+    const char* modnm="");
 
 } // namespace ewts
 

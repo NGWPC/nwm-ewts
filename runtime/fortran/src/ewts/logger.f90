@@ -2,6 +2,14 @@ module logger
   use, intrinsic :: iso_c_binding, only: c_char, c_int, c_double, c_null_char
   use iso_fortran_env, only: output_unit
   use ewts_log_levels, only: ewts_log_level_name
+  use ewts_payload_status, only: PAYLOAD_NULL, & 
+                                 PAYLOAD_INITTING, &
+                                 PAYLOAD_INITTED, &
+                                 PAYLOAD_STARTING, &
+                                 PAYLOAD_INPROG, &
+                                 PAYLOAD_COMPLETE, &
+                                 PAYLOAD_ERROR
+
   implicit none
   private
 
@@ -33,6 +41,13 @@ module logger
   public :: write_log, is_logger_enabled, get_log_level, logger_init
   public :: write_log_module, is_logger_enabled_module, get_log_level_module, logger_init_module
   public :: payload_status
+  public :: PAYLOAD_NULL
+  public :: PAYLOAD_INITTING
+  public :: PAYLOAD_INITTED
+  public :: PAYLOAD_STARTING
+  public :: PAYLOAD_INPROG
+  public :: PAYLOAD_COMPLETE
+  public :: PAYLOAD_ERROR
 
 #ifdef EWTS_HAVE_NGEN_BRIDGE
   interface
@@ -517,6 +532,7 @@ contains
         prog, &
         trim(msg) // c_null_char, &
         trim(modnm) // c_null_char)
+        return
     end if
 #endif
   end subroutine payload_status

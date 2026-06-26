@@ -2,6 +2,7 @@
 #define EWTS_LOGGER_H
 
 #include <stdbool.h>
+#include "ewts/payload_status.h"
 
 #ifdef __cplusplus
 extern "C" {

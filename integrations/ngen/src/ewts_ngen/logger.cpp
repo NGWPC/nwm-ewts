@@ -21,6 +21,7 @@
 
 #include "ewts_ngen/ngen_module_keys.hpp"
 #include "ewts/log_levels.hpp"
+#include "ewts/payload_status.hpp"
 
 int Logger::g_mpiRank = 0;
 
@@ -33,8 +34,7 @@ static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
 static const char* const kConfigFilename   = "ngen_logging.json";
 static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
 static const char* const kEnvEwtsLogLevel  = "EWTS_LOG_LEVEL";
-static const char* const kDefaultRunLogsDirName = "run_logs";
-static std::string       kLogRankLabel      = "mpi_process";
+static std::string       kLogRankLabel     = "mpi_process";
 
 inline bool IsDigitString(const std::string& s) {
     if (s.empty()) return false;
@@ -668,6 +668,10 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
 
     if (!logger->loggingEnabled) return;
 
+    // Check for Payload status message
+    if (messageLevel == LogLevel::STATUS) LogPayload(moduleName.c_str(), message);
+
+
     // For bridged/per-module logging, filter using the effective level for the
     // incoming moduleName, not the singleton logger instance's own module level.
     LogLevel effectiveLevel = logger->logLevel;
@@ -942,7 +946,7 @@ bool Logger::LogPayload(const char* ewts_id, const char* json_message)
     if (!json_message) {
         LogPayload(
             ewts_id,
-            "ERROR",
+            ewts::PAYLOAD_ERROR,
             0.0,
             "Malformed payload: payload message is null",
             "");
@@ -954,8 +958,8 @@ bool Logger::LogPayload(const char* ewts_id, const char* json_message)
     if (!extracted.ok) {
         LogPayload(
             ewts_id,
-            "ERROR",
-            0.0,
+            ewts::PAYLOAD_ERROR,
+            -1.0,
             extracted.error_msg,
             "");
         return false;
@@ -971,7 +975,7 @@ bool Logger::LogPayload(const char* ewts_id, const char* json_message)
         LogPayload(
             ewts_id,
             pt.get<std::string>("status", ""),
-            pt.get<double>("prog", 0.0),
+            pt.get<double>("prog", -1.0),
             pt.get<std::string>("msg", ""),
             pt.get<std::string>("modnm", "")
         );
@@ -981,8 +985,8 @@ bool Logger::LogPayload(const char* ewts_id, const char* json_message)
     {
         LogPayload(
             ewts_id,
-            "ERROR",
-            0.0,
+            ewts::PAYLOAD_ERROR,
+            -1.0,
             std::string("Malformed payload JSON: ") + e.what(),
             "");
         return false;
@@ -991,8 +995,8 @@ bool Logger::LogPayload(const char* ewts_id, const char* json_message)
     {
         LogPayload(
             ewts_id,
-            "ERROR",
-            0.0,
+            ewts::PAYLOAD_ERROR,
+            -1.0,
             std::string("Malformed payload fields: ") + e.what(),
             "");
         return false;
@@ -1013,12 +1017,40 @@ void Logger::LogPayload(
     }
 
     std::ostringstream json;
-    json << '{'
-        << "\"status\":\"" << EscapeJson(status) << "\","
-        << "\"prog\":" << std::defaultfloat << prog << ","
-        << "\"msg\":\"" << EscapeJson(msg) << "\","
-        << "\"modnm\":\"" << EscapeJson(modnm) << "\""
-        << '}';
+    bool first = true;
+
+    auto add_string = [&](const char* key, const std::string& value)
+    {
+        if (!first) json << ',';
+        first = false;
+        json << '"' << key << "\":";
+        if (value.empty() || value == ewts::PAYLOAD_NULL) {
+            json << "null";
+        } else {
+            json << '"' << EscapeJson(value) << '"';
+        }
+    };
+
+    auto add_double = [&](const char* key, double value)
+    {
+        if (!first) json << ',';
+        first = false;
+        json << '"' << key << "\":";
+        if (value < 0.0) {
+            json << "null";
+        } else {
+            json << std::defaultfloat << value;
+        }
+    };
+
+    json << '{';
+
+    add_string("status", status);
+    add_double("prog", prog);
+    add_string("msg", msg);
+    add_string("modnm", modnm);
+
+    json << '}';
 
     const std::string module_name =
     (ewts_id && std::strlen(ewts_id) > 0)
