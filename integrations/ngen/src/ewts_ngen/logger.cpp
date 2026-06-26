@@ -21,7 +21,6 @@
 
 #include "ewts_ngen/ngen_module_keys.hpp"
 #include "ewts/log_levels.hpp"
-#include "ewts/payload_status.hpp"
 
 int Logger::g_mpiRank = 0;
 
@@ -669,8 +668,10 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
     if (!logger->loggingEnabled) return;
 
     // Check for Payload status message
-    if (messageLevel == LogLevel::STATUS) LogPayload(moduleName.c_str(), message);
-
+    if (messageLevel == LogLevel::STATUS) {
+        LogPayload(moduleName.c_str(), message.c_str());
+        return;
+    }
 
     // For bridged/per-module logging, filter using the effective level for the
     // incoming moduleName, not the singleton logger instance's own module level.

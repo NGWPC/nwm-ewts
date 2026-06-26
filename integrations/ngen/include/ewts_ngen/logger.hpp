@@ -12,6 +12,9 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include "ewts_ngen/ngen_module_constants.hpp"
+#include "ewts/payload_status.hpp"
+
 /*
  * NGEN integration logger.
  *
@@ -56,12 +59,11 @@ class Logger {
 
     bool IsLoggingEnabled() const { return loggingEnabled; }
     LogLevel GetLogLevel() const { return logLevel; }
-
     
     static void LogPayload(
         const char* ewts_id,
-        const std::string& status,
-        double             prog=0,
+        const std::string& status=std::string(),
+        double             prog=-1.0,
         const std::string& msg=std::string(),
         const std::string& modnm=std::string());
 
@@ -136,5 +138,8 @@ class Logger {
 #define LOG Logger::Log
 #define GetLogLevel() Logger::GetLogger()->GetLogLevel()
 #define IsLoggingEnabled() Logger::GetLogger()->IsLoggingEnabled()
+
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    Logger::LogPayload((ewts_id), (status), (prog), (msg), (modnm))
 
 #endif /* EWTS_NGEN_LOGGER_HPP */
