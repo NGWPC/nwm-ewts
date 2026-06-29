@@ -1,385 +1,463 @@
 # EWTS Python Runtime
 
-This directory contains the developer-facing documentation for the EWTS Python
-runtime.
+The EWTS Python runtime provides the Python package implementation of the NWM Error and Warning Trapping System (EWTS). It supports standalone Python logging, logging through the `ngen` EWTS bridge when available, and structured status/data payloads embedded in EWTS log messages.
 
-The Python runtime provides the Python package implementation of EWTS while
-matching the same general logging model used by the native language-specific Runtime Libraries.
+The package is installed and imported as:
 
-## Package layout
-
-The Python package lives under:
-
-```text
-runtime/python/ewts
+```python
+import ewts
 ```
 
-The importable source code is located in:
+The Python package source lives in:
 
 ```text
 runtime/python/ewts/src/ewts
 ```
 
-and is imported as:
+The Python package project root is:
+
+```text
+runtime/python/ewts
+```
+
+## Current package behavior
+
+The current Python logger no longer uses lazy binding or bound logger proxies. `get_logger()` returns a cached, initialized `EwtsLogger` for the requested EWTS module id. `setup_logger()` resets any existing logger for the module, applies runtime overrides, and returns a freshly initialized `EwtsLogger`.
+
+Use this model for new code:
 
 ```python
 import ewts
+
+LOG = ewts.get_logger(ewts.T_ROUTE_ID)
+LOG.info("Starting routing")
 ```
 
-## Installation for development
+For component startup code that needs to control the level, destination, file name, `ngen` behavior, or enabled state, use `setup_logger()`:
 
-Editable install:
+```python
+import ewts
+
+LOG = ewts.setup_logger(
+    ewts.CAL_MGR_ID,
+    level="INFO",
+    log_dir="/path/to/run_logs",
+    log_file_name="cal_mgr.log",
+    running_in_ngen=False,
+    enabled=True,
+)
+
+LOG.info("Calibration manager initialized")
+```
+
+## Installation
+
+### Editable install for development
+
+From the top of the EWTS repository:
 
 ```bash
-pip install -e runtime/python/ewts
+python -m pip install -e runtime/python/ewts
 ```
 
-Build a distribution manually:
+### Build a distribution
 
 ```bash
 python -m build runtime/python/ewts
 ```
 
-Install a built wheel:
+### Install a built wheel
 
 ```bash
-pip install runtime/python/ewts/dist/ewts-<version>-py3-none-any.whl
+python -m pip install runtime/python/ewts/dist/ewts-<version>-py3-none-any.whl
 ```
 
-## Using EWTS from another Python repository
+### Install from Git in a consuming Python repository
 
-A different Python repository does not automatically gain access to EWTS just
-because the top-level repository was built or installed elsewhere. The consuming
-Python environment still needs to install the EWTS wheel or package.
-
-Typical example:
+A separate Python repository does not automatically gain access to EWTS just because the top-level EWTS repository was built elsewhere. The consuming Python environment still needs to install the EWTS wheel or package.
 
 ```bash
-cd /path/to/other-repo
-python -m venv .venv
-source .venv/bin/activate
-pip install "ewts @ git+https://github.com/NGWPC/nwm-ewts.git@development#subdirectory=runtime/python/ewts"
-pip install -e .
+python -m pip install \
+  "ewts @ git+https://github.com/NGWPC/nwm-ewts.git@development#subdirectory=runtime/python/ewts"
 ```
-Within Dockerfile
-```bash
+
+Then consuming code can import EWTS normally:
+
+```python
+import ewts
+```
+
+### Docker install example
+
+```dockerfile
 ARG GH_ORG=NGWPC
 ARG EWTS_REF=development
+ARG EWTS_CACHE_BUST=0
+
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache \
-    echo "EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     set -eux && \
+    echo "EWTS cache bust: ${EWTS_CACHE_BUST}" && \
     ewts_dir="$(mktemp -d)" && \
     git clone "https://github.com/${GH_ORG}/nwm-ewts.git" "${ewts_dir}" && \
     cd "${ewts_dir}" && \
     git checkout "${EWTS_REF}" && \
-    pip install "${ewts_dir}/runtime/python/ewts" && \
+    python -m pip install "${ewts_dir}/runtime/python/ewts" && \
     rm -rf "${ewts_dir}"
 ```
 
-After that, the consuming repository can simply:
+## Public API
+
+The main public imports are re-exported from `ewts`:
+
+```python
+from ewts import (
+    EwtsLogger,
+    get_logger,
+    setup_logger,
+    reset_logger,
+    configure_existing_logger,
+    LogParts,
+    Payload,
+    Status,
+    parts_of_log_line,
+    payload_of_log_msg,
+)
+```
+
+EWTS also re-exports the generated module id constants, such as:
+
+```python
+ewts.FORCING_ID        # "FORCING"
+ewts.LSTM_ID           # "LSTM"
+ewts.TOPOFLOW_GLACIER_ID  # "TFGLACR"
+ewts.T_ROUTE_ID        # "TROUTE"
+ewts.MSW_MGR_ID        # "MSWMGR"
+ewts.CAL_MGR_ID        # "CALMGR"
+ewts.EVAL_MGR_ID       # "EVALMGR"
+ewts.FCST_MGR_ID       # "FCSTMGR"
+ewts.RTE_ID            # "RTE"
+ewts.ASSIM_ENGINE_ID   # "ASSIM"
+```
+
+## Logging levels
+
+EWTS defines these canonical levels:
+
+| Name | Value |
+|---|---:|
+| `NOTSET` | 0 |
+| `DEBUG` | 10 |
+| `PERFORM` | 15 |
+| `INFO` | 20 |
+| `WARNING` | 30 |
+| `SEVERE` | 40 |
+| `FATAL` | 50 |
+| `STATUS` | 60 |
+
+The Python runtime registers `PERFORM` and `STATUS` with the standard `logging` package and adds `logging.Logger.perform()` and `logging.Logger.status()` when they are not already present.
+
+## Basic logging examples
+
+### Get a module logger
 
 ```python
 import ewts
+
+LOG = ewts.get_logger(ewts.T_ROUTE_ID)
+LOG.debug("debug detail")
+LOG.perform("performance message")
+LOG.info("normal message")
+LOG.warning("warning message")
+LOG.severe("severe message")
+LOG.fatal("fatal message")
+LOG.status("status message")
 ```
 
-# EWTS Python Runtime
+`error()` is an alias for `severe()`, and `critical()` is an alias for `fatal()`.
 
-## Lazy binding model
-
-The Python runtime uses lazy binding so a module can declare a logger at import
-time without fully initializing the runtime too early.
-
-### ngen module
+### Configure a logger explicitly
 
 ```python
 import ewts
 
-LOG = ewts.get_logger(ewts.FORCING_ID)
+LOG = ewts.setup_logger(
+    ewts.FCST_MGR_ID,
+    enabled=True,
+    level="DEBUG",
+    log_dir="./run_logs",
+    log_file_name="forecast_manager.log",
+    running_in_ngen=False,
+)
+
+LOG.info("Forecast manager ready")
 ```
 
-`get_logger()` returns a proxy logger. Before any logging calls are made, it must be bound. This is typically done at the start of BMI initialization:
+`setup_logger()` accepts either a string level name or integer level. Unknown string values default to `INFO`.
+
+### Configure an existing Python logger
+
+Use `configure_existing_logger()` when a component already creates a standard `logging.Logger` and you want EWTS to manage its output. The logger name must be a known EWTS module id, such as `TROUTE`, `CALMGR`, or `FCSTMGR`.
 
 ```python
-LOG.bind()
-LOG.info("Initializing BMI forcing")
+import logging
+import ewts
+
+LOG = logging.getLogger("TROUTE")
+ewts.configure_existing_logger(LOG)
+
+LOG.info("This standard Python logger is now routed through EWTS")
+LOG.status("Routing status update")
 ```
 
-### Standalone component
-Standalone components do not require lazy binding because they are not executed
-within the `ngen` embedded Python interpreter. In these cases, setting `bind_now=True` 
-will return a fully initialized (bound) logger instead of a proxy.
+If the logger name is not a known EWTS module id, `configure_existing_logger()` raises `ValueError`.
 
-```python
-ewts.logger.setup_logger(
-        ewts.CAL_MGR_ID,
-        level=log_level,
-        log_dir=resolved_log_dir,
-        log_file_name=resolved_log_file_name,
-        running_in_ngen=False,
-        enabled=enabled_override,
-        bind_now=True,
-    )
-```
+## Runtime configuration
 
-## Why Lazy Binding Exists
-
-The EWTS Python runtime uses a **lazy binding model** due to how `ngen` executes Python.
-
-`ngen` is a C++ application that embeds a Python interpreter and **imports Python modules before they are actually executed**. This creates two key problems:
-
-### 1. Premature Initialization
-
-If logging were initialized at import time:
-- Loggers would be created before runtime configuration is complete
-- Environment variables (log level, paths, MPI rank) may not yet be available
-- Incorrect log destinations or levels could be used
-
-### 2. Embedded Python Environment Variables
-
-In embedded Python, environment variables set from C/C++ (like `ngen`) are not always visible via `os.environ`.
-
-To solve this, EWTS uses:
-
-- **Lazy binding** → delay logger creation until explicitly requested
-- **getenv_any()** → fallback to `libc getenv()` when Python cannot see env vars
-
-### Result
-
-- Modules can safely declare loggers at import time
-- Logging is only initialized when the runtime is ready
-- Environment variables from `ngen` are correctly honored
-
-### Key Takeaways
-
-- Lazy binding avoids incorrect initialization during import
-- Required for embedded Python in `ngen`
-- Ensures correct environment configuration
-- `getenv_any()` guarantees env visibility from C++ runtime
-
-## Runtime relationship to `ngen`
-
-When `ngen` integration is active, the Python runtime forwards messages through
-the same broader EWTS model used by the native Runtime Libraries. Outside `ngen`, the
-Python runtime handles standalone logging behavior directly.
-
-## Environment Configuration
-
-### Set by Calling Workflow or CLI (before running `ngen`)
+EWTS can be configured with environment variables or through `setup_logger()` overrides.
 
 | Variable | Purpose |
 |---|---|
-| `NGEN_RESULTS_DIR` | Directory for `ngen` output results. |
-| Optional:| |
-| `EWTS_ENABLED` | Enables or disables logging. (True if undefined) Used in standalone mode or when no `ngen` logging configuration is provided. |
-| `EWTS_LOG_DIR` | Standalone log directory (checked when `NGEN_RESULTS_DIR` is not defined) |
-| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
-| `<MODULE>_LOGLEVEL` | Per-module log level override (e.g., `TROUTE_LOGLEVEL`). Environment values are used by default, but `ngen` logging configuration takes precedence when present. |
+| `EWTS_ENABLED` | Enables/disables logging. Defaults to enabled. False values: `0`, `false`, `off`, `no`. |
+| `EWTS_LOG_LEVEL` | Default EWTS log level. Defaults to `INFO`. |
+| `<EWTS_ID>_LOGLEVEL` | Per-module log level override, for example `TROUTE_LOGLEVEL` or `CALMGR_LOGLEVEL`. |
+| `EWTS_LOG_DIR` | Standalone log output directory. If unset, the standalone logger writes to stdout. |
+| `EWTS_RANK` | MPI rank. When set, the rank is included in initialization output and file naming. |
+| `EWTS_USE_NGEN_BRIDGE` | Indicates that EWTS should try to route logging through the `ngen` bridge. |
+| `EWTS_NGEN_BRIDGE_LIB` | Optional explicit path to the EWTS `ngen` bridge shared library. |
+| `EWTS_DEBUG` | Prints bridge load errors when bridge loading fails. |
 
----
+`setup_logger()` overrides are applied for the requested EWTS id and take precedence over environment-derived values for that logger.
 
-### Set by `ngen` (runtime environment)
+## Standalone logging behavior
 
-| Variable | Purpose |
-|---|---|
-| `EWTS_ENABLED` | Enables or disables logging based on the `ngen` logging configuration. **Takes precedence over the environment variable when present.** Defaults to enabled. |
-| `EWTS_RANK` | MPI rank assigned by `ngen`; used to separate log output per process. If unset, assumes non-MPI execution. |
-| `<MODULE>_LOGLEVEL` | Per-module log level override (e.g., `TROUTE_LOGLEVEL`) |
+When `EWTS_USE_NGEN_BRIDGE` is not set, or when the `ngen` bridge cannot be loaded, EWTS uses standalone logging.
 
-EWTS resolves the log directory in the following order:
-1. `NGEN_RESULTS_DIR`, if defined (when running under `ngen`)
-2. `EWTS_LOG_DIR`, if defined
-3. `$HOME/run_logs`, if $HOME defined
-4. `./run_logs` (default fallback)
+If `EWTS_LOG_DIR` or `setup_logger(log_dir=...)` is set, EWTS writes log lines to a file under that directory. If no log directory is provided, EWTS writes to stdout.
 
-If the log directory cannot be created, logs are written to stdout
+Standalone log lines use this prefix format:
 
-# Logging API
-
-## get_logger(module_key_or_ewts_id)
-
-```python
-def get_logger(module_key_or_ewts_id: str) -> BoundEwtsLoggerProxy
+```text
+<UTC timestamp> <EWTS_ID padded to 8 chars> <LEVEL padded to 7 chars> <message>
 ```
 
-### Required
-- `module_key_or_ewts_id: str`
+Example:
 
-### Optional
-- None
-
-### Returns
-- `BoundEwtsLoggerProxy`
-
----
-
-## bind_logger(module_key_or_ewts_id)
-
-```python
-def bind_logger(module_key_or_ewts_id: str) -> EwtsLogger
+```text
+2026-06-18T18:13:15.123Z TROUTE   INFO    Starting routing
 ```
 
-### Required
-- `module_key_or_ewts_id: str`
+## `ngen` bridge behavior
 
-### Optional
-- None
+When `EWTS_USE_NGEN_BRIDGE` is set, EWTS attempts to load the `ngen` bridge and send messages through:
 
-### Returns
-- `EwtsLogger`
-
----
-
-## reset_logger(module_key_or_ewts_id)
-
-```python
-def reset_logger(module_key_or_ewts_id: str) -> None
+```text
+ewts_ngen_log(const char* ewts_id, int level, const char* message)
 ```
 
-### Required
-- `module_key_or_ewts_id: str`
+Bridge loading uses this order:
 
-### Optional
-- None
+1. `EWTS_NGEN_BRIDGE_LIB`, if set.
+2. `libewts_ngen_bridge.so` from the runtime loader path.
 
-### Returns
-- `None`
+If the bridge cannot be loaded, EWTS falls back to standalone logging instead of failing the component.
 
-### Behavior
+## Resetting a logger
 
-- Removes all logging handlers
-- Resets Python logger state
-- Clears the bound EWTS logger
-- Resets initialization tracking
-- Does **not** remove the logger from the cache
-- Does **not** reset all loggers globally
-- Only affects the specified EWTS ID
-
-### When to use
-- To change the log file name for a specific `ewts_id` logger.
-- Particularly useful during a bootstrap phase, when log messages are generated
-  before the final job log directory and filename are known.
-
----
-
-## setup_logger(...)
-
-Configures logging for a specific EWTS ID. Intended for use by 
-standalone components; not used by ngen submodules.
-
-
-```python
-def setup_logger(
-    module_key_or_ewts_id: str,
-    *,
-    level: str | int | None = None,
-    log_dir: str | Path | None = None,
-    log_file_name: str | None = None,
-    running_in_ngen: bool | None = None,
-    enabled: bool | None = None,
-    bind_now: bool = False,
-) -> BoundEwtsLoggerProxy | EwtsLogger
-```
-
-### Required
-- `module_key_or_ewts_id: str`
-
-### Optional (with defaults)
-- `level: str | int | None = None`  
-  → Uses environment/default config if not provided
-
-- `log_dir: str | Path | None = None`  
-  → Uses `EWTS_LOG_DIR` or internal default
-
-- `log_file_name: str | None = None`  
-  → Auto-generated via `make_log_path(...)`
-
-- `running_in_ngen: bool | None = None`  
-  → Determined from runtime/environment
-
-- `enabled: bool | None = None`  
-  → Uses `EWTS_ENABLED` or defaults to enabled
-
-- `bind_now: bool = False`  
-  → Returns proxy unless explicitly set True
-
-### Behavior
-- Calls `reset_logger()` first
-- Applies overrides via `set_runtime_override()`
-- Returns:
-  - Proxy (`bind_now=False`)
-  - Bound logger (`bind_now=True`)
-
----
-
-## Valid EWTS Module Identifiers
-
-Use the following constants when working with EWTS loggers.  
-You may pass either the module id or key to `get_logger()` or `setup_logger()`.
-
-> Internally, module keys are automatically resolved to their corresponding EWTS IDs.
-
-| Module/Component | ID Constant | Key Constant | Value |
-|------------------|-------------|-------------|-------|
-| Forcing | `FORCING_ID` | `FORCING_KEY` | `"FORCING"` |
-| LSTM | `LSTM_ID` | `LSTM_KEY` | `"LSTM"` |
-| TopoFlow Glacier | `TOPOFLOW_GLACIER_ID` | `TOPOFLOW_GLACIER_KEY` | `"TFGLACR"` |
-| T-Route | `T_ROUTE_ID` | `T_ROUTE_KEY` | `"TROUTE"` |
-| Calibration Manager | `CAL_MGR_ID` | `CAL_MGR_KEY` | `"CALMGR"` |
-| Forecast Manager | `FCST_MGR_ID` | `FCST_MGR_KEY` | `"FCSTMGR"` |
-| MSW Manager | `MSW_MGR_ID` | `MSW_MGR_KEY` | `"MSWMGR"` |
-
-### Example
+Use `reset_logger()` in tests or reconfiguration paths when a logger should be rebuilt from new environment variables or new runtime overrides.
 
 ```python
 import ewts
 
-# Using ID constant
-LOG = ewts.get_logger(ewts.FORCING_ID)
-
-# Using KEY constant (automatically resolved)
-LOG = ewts.get_logger(ewts.FORCING_KEY)
+ewts.reset_logger(ewts.T_ROUTE_ID)
+LOG = ewts.get_logger(ewts.T_ROUTE_ID)
 ```
 
-## MPI Behavior
+`reset_logger()` clears the cached EWTS logger, resets the internal `ewts.<ID>` Python logger, and also resets a same-named application logger such as `TROUTE` when `configure_existing_logger()` was used.
 
-When running under MPI, each rank writes to a separate file, for example:
+## Structured status/data payloads
+
+The `ewts.data_payloads` module supports structured status reporting by embedding a JSON payload inside a normal EWTS log message. The payload is wrapped with sentinel strings so it can be found and parsed later from a log line.
+
+The sentinel strings are:
 
 ```text
-logs/ngen_mpi_process_0.log
-logs/ngen_mpi_process_1.log
+<MSG_DATA>
+</MSG_DATA>
 ```
 
-This prevents file I/O collisions across ranks.
+A payload is represented by the `Payload` dataclass:
 
-In `split-by-module` mode, the file stem changes but the per-rank rule remains.
+```python
+@dataclass
+class Payload:
+    status: Status
+    prog: float | None = None
+    msg: str | None = None
+    modnm: str | None = None
+```
 
-In a formulation containing t-route example:
+### Payload status values
+
+`Status` is a `StrEnum` with these values:
+
+| Enum | JSON value |
+|---|---|
+| `Status.NULL` | `NULL` |
+| `Status.INITTING` | `INITIALIZING` |
+| `Status.INITTED` | `INITIALIZED` |
+| `Status.STARTING` | `STARTING` |
+| `Status.INPROG` | `IN_PROGRESS` |
+| `Status.COMPLETE` | `COMPLETE` |
+| `Status.ERROR` | `ERROR` |
+
+### Creating and logging a payload
+
+```python
+import ewts
+from ewts import Payload, Status
+
+LOG = ewts.get_logger(ewts.T_ROUTE_ID)
+
+payload = Payload(
+    status=Status.INPROG,
+    prog=0.50,
+    msg="Routing is 50% complete",
+    modnm="t-route",
+)
+
+LOG.status(payload)
+```
+
+Because `Payload.__str__()` returns the JSON wrapped with the sentinel strings, the log message includes text like:
 
 ```text
-logs/ngen_mpi_process_0.log
-logs/ngen_mpi_process_1.log
-logs/troute_mpi_process_0.log
-logs/troute_mpi_process_1.log
+<MSG_DATA>{"status": "IN_PROGRESS", "prog": 0.5, "msg": "Routing is 50% complete", "modnm": "t-route"}</MSG_DATA>
 ```
 
-## Tests
+You can also include a payload in a larger message:
 
-Python tests are located under:
+```python
+LOG.status("status update: %s", payload)
+```
+
+### Payload validation
+
+`Payload` validates its fields when constructed:
+
+- `status` must be a `Status` enum value.
+- `prog` must be `None` or a `float` between `0.0` and `1.0`.
+- `msg` must be `None` or `str`.
+- `modnm` must be `None` or `str`.
+
+Invalid payloads raise `ValueError`.
+
+### Extracting a payload from a log message
+
+Use `payload_of_log_msg()` when you only need the structured payload from a log message string.
+
+```python
+from ewts import payload_of_log_msg
+
+payload = payload_of_log_msg(log_message)
+
+if payload is not None:
+    print(payload.status)
+    print(payload.prog)
+    print(payload.msg)
+    print(payload.modnm)
+```
+
+`payload_of_log_msg()` returns `None` if no sentinel-wrapped payload is found. It raises `ValueError` if multiple payloads are found or if the sentinel-wrapped content cannot be parsed into a valid `Payload`.
+
+### Parsing a full EWTS log line
+
+Use `parts_of_log_line()` to parse a full standalone EWTS log line into `LogParts`.
+
+```python
+from ewts import parts_of_log_line
+
+parts = parts_of_log_line(line)
+
+print(parts.dt)       # datetime in UTC
+print(parts.module)   # EWTS module id
+print(parts.level)    # EWTS level name
+print(parts.msg)      # message text
+print(parts.payload)  # Payload or None
+```
+
+`parts_of_log_line()` expects a line with at least four whitespace-delimited parts:
 
 ```text
-runtime/python/ewts/tests
+<timestamp> <module> <level> <message>
 ```
 
-Run them with:
+The timestamp must be an ISO timestamp with UTC timezone. If the line cannot be parsed, `parts_of_log_line()` raises `LogPartsFactoryParserError` unless `tolerant=True` is passed.
+
+```python
+parts = parts_of_log_line(line, tolerant=True)
+```
+
+In tolerant mode, non-payload parsing errors do not raise. Instead, fields that could not be parsed may be `None`. Payload parsing is still strict: if a payload sentinel is present, the payload must be valid.
+
+## Recommended payload logging convention
+
+Use EWTS `STATUS` level for high-level module status and progress messages. Use `Payload` when another process or post-run parser needs machine-readable status fields.
+
+Example lifecycle:
+
+```python
+import ewts
+from ewts import Payload, Status
+
+LOG = ewts.get_logger(ewts.CAL_MGR_ID)
+
+LOG.status(Payload(Status.INITTING, msg="Calibration manager initializing", modnm="cal-mgr"))
+LOG.status(Payload(Status.INITTED, msg="Calibration manager initialized", modnm="cal-mgr"))
+LOG.status(Payload(Status.STARTING, prog=0.0, msg="Calibration started", modnm="cal-mgr"))
+LOG.status(Payload(Status.INPROG, prog=0.25, msg="Calibration 25% complete", modnm="cal-mgr"))
+LOG.status(Payload(Status.COMPLETE, prog=1.0, msg="Calibration complete", modnm="cal-mgr"))
+```
+
+On failure:
+
+```python
+LOG.status(Payload(Status.ERROR, msg="Calibration failed", modnm="cal-mgr"))
+LOG.severe("Calibration failed", exc_info=True)
+```
+
+## Module ids and keys
+
+The package includes generated module registry constants. Module keys are lower-case, workflow-friendly identifiers. EWTS ids are the fixed-width logging identifiers used in log output.
+
+| Module key | EWTS id | Description |
+|---|---|---|
+| `forcing` | `FORCING` | Forcing Engine |
+| `lstm` | `LSTM` | Long Short-Term Memory Networks Model |
+| `topoflow-glacier` | `TFGLACR` | Glacier Model from the TopoFlow Model |
+| `t-route` | `TROUTE` | T-Route routing |
+| `msw-mgr` | `MSWMGR` | Model Setup Workflow Component |
+| `cal-mgr` | `CALMGR` | Calibration Manager Component |
+| `eval-mgr` | `EVALMGR` | Evaluation Manager Component |
+| `fcst-mgr` | `FCSTMGR` | Forecast Manager Component |
+| `rte` | `RTE` | Runtime Environment Component |
+| `assim-engine` | `ASSIM` | Assimilation Engine Component |
+
+`get_logger()` and `setup_logger()` accept either a module key or an EWTS id. Unknown values are uppercased and used as the EWTS id.
+
+```python
+LOG1 = ewts.get_logger("t-route")   # resolves to TROUTE
+LOG2 = ewts.get_logger("TROUTE")    # uses TROUTE
+```
+
+## Testing
+
+From the Python package root:
 
 ```bash
-pip install pytest
-pip install -e runtime/python/ewts
-pytest runtime/python/ewts/tests
+cd runtime/python/ewts
+python -m pytest
 ```
 
-## Related documentation
+## Notes for maintainers
 
-- user-facing overview: `docs/runtimes/python.md`
-- framework installation: `docs/installation.md`
-- generator details: `tools/README.md`
+Generated files such as `log_levels.py`, `modules.py`, and `module_keys.py` are generated from EWTS specs and should not be edited directly. Update the source specs and regenerate language constants instead.

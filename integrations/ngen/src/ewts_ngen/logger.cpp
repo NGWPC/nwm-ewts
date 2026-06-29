@@ -33,8 +33,7 @@ static const char* const kEnvEwtsLogDir    = "EWTS_LOG_DIR";
 static const char* const kConfigFilename   = "ngen_logging.json";
 static const char* const kEnvEwtsEnabled   = "EWTS_ENABLED";
 static const char* const kEnvEwtsLogLevel  = "EWTS_LOG_LEVEL";
-static const char* const kDefaultRunLogsDirName = "run_logs";
-static std::string       kLogRankLabel      = "mpi_process";
+static std::string       kLogRankLabel     = "mpi_process";
 
 inline bool IsDigitString(const std::string& s) {
     if (s.empty()) return false;
@@ -154,6 +153,85 @@ inline std::string PrependLogFilePrefix(const std::string& baseName) {
         return baseName;
     }
     return prefix + "_" + baseName;
+}
+
+static constexpr const char* kPayloadBeginSentinel = "<MSG_DATA>";
+static constexpr const char* kPayloadEndSentinel = "</MSG_DATA>";
+
+struct PayloadExtractResult {
+    bool ok = false;
+    std::string json;
+    std::string error_msg;
+};
+
+inline std::string MissingSentinelMessage(const char* sentinel)
+{
+    return std::string("Malformed payload: missing sentinel ") + sentinel;
+}
+
+inline PayloadExtractResult ExtractJsonPayload(const char* message)
+{
+    PayloadExtractResult result;
+
+    if (!message) {
+        result.error_msg = "Payload message is null";
+        return result;
+    }
+
+    const std::string s(message);
+
+    const bool has_begin = s.find(kPayloadBeginSentinel) != std::string::npos;
+    const bool has_end   = s.find(kPayloadEndSentinel) != std::string::npos;
+
+    // No sentinals found
+    if (!has_begin && !has_end) {
+        result.ok = true;
+        result.json = s;
+        return result;
+    }
+
+    if (has_begin && !has_end) {
+        result.error_msg = MissingSentinelMessage(kPayloadEndSentinel);
+        return result;
+    }
+
+    if (!has_begin && has_end) {
+        result.error_msg = MissingSentinelMessage(kPayloadBeginSentinel);
+        return result;
+    }
+
+    const std::size_t begin_pos = s.find(kPayloadBeginSentinel);
+    const std::size_t json_start = begin_pos + std::strlen(kPayloadBeginSentinel);
+    const std::size_t end_pos = s.find(kPayloadEndSentinel, json_start);
+
+    if (end_pos == std::string::npos) {
+        result.error_msg = MissingSentinelMessage(kPayloadEndSentinel);
+        return result;
+    }
+
+    result.ok = true;
+    result.json = s.substr(json_start, end_pos - json_start);
+    return result;
+}
+
+inline std::string EscapeJson(const std::string& s)
+{
+    std::string out;
+
+    for (char c : s)
+    {
+        switch (c)
+        {
+        case '"':  out += "\\\""; break;
+        case '\\': out += "\\\\"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        default:   out += c;
+        }
+    }
+
+    return out;
 }
 
 } // namespace
@@ -589,6 +667,12 @@ void Logger::Log(const std::string& moduleName, LogLevel messageLevel, const std
 
     if (!logger->loggingEnabled) return;
 
+    // Check for Payload status message
+    if (messageLevel == LogLevel::STATUS) {
+        LogPayload(moduleName.c_str(), message.c_str());
+        return;
+    }
+
     // For bridged/per-module logging, filter using the effective level for the
     // incoming moduleName, not the singleton logger instance's own module level.
     LogLevel effectiveLevel = logger->logLevel;
@@ -805,4 +889,192 @@ std::string Logger::EnvVarIdentFromModuleKey(const std::string& key) {
         return std::string(id);
     }
     return "";
+}
+
+bool Logger::PayloadFileReady(void) const {
+    return payloadFile.is_open() && payloadFile.good();
+}
+
+bool Logger::OpenPayloadFileIfNeeded(void) {
+    if (PayloadFileReady()) {
+        return true;
+    }
+
+    InitIfNeeded();
+
+    if (!loggingEnabled) {
+        return false;
+    }
+
+    if (logFileDir.empty()) {
+        return false;
+    }
+
+    std::string stem = "ngen_payload";
+    stem = PrependLogFilePrefix(stem);
+
+    std::string rank_part;
+    if (mpi_is_initialized()) {
+        rank_part = "_" + kLogRankLabel + "_" + std::to_string(GetRank());
+    }
+
+    std::string ts_part;
+    const char* rd = std::getenv(kEnvResultsDir);
+    if (!(rd && std::strlen(rd) > 0)) {
+        ts_part = "_" + CreateCompactTimestampUTC();
+    }
+
+    const std::string filename = stem + rank_part + ts_part + ".log";
+    payloadFilePath = JoinPath(logFileDir, filename);
+
+    payloadFile.open(payloadFilePath.c_str(), std::ios::out | std::ios::trunc);
+
+    if (PayloadFileReady()) {
+        std::ostringstream oss;
+        if (g_mpiRank >= 0) {
+            oss << "[rank " << g_mpiRank << "] ";
+        }
+        oss << "EWTS NGEN payload log file " << payloadFilePath << '\n';
+        std::cout << oss.str() << std::flush;
+        return true;
+    }
+
+    return false;
+}
+
+bool Logger::LogPayload(const char* ewts_id, const char* json_message)
+{
+    if (!json_message) {
+        LogPayload(
+            ewts_id,
+            ewts::PAYLOAD_ERROR,
+            0.0,
+            "Malformed payload: payload message is null",
+            "");
+        return false;
+    }
+
+    const PayloadExtractResult extracted = ExtractJsonPayload(json_message);
+
+    if (!extracted.ok) {
+        LogPayload(
+            ewts_id,
+            ewts::PAYLOAD_ERROR,
+            -1.0,
+            extracted.error_msg,
+            "");
+        return false;
+    }
+
+    try
+    {
+        std::stringstream ss(extracted.json);
+
+        boost::property_tree::ptree pt;
+        boost::property_tree::read_json(ss, pt);
+
+        LogPayload(
+            ewts_id,
+            pt.get<std::string>("status", ""),
+            pt.get<double>("prog", -1.0),
+            pt.get<std::string>("msg", ""),
+            pt.get<std::string>("modnm", "")
+        );
+        return true;
+    }
+    catch (const boost::property_tree::json_parser_error& e)
+    {
+        LogPayload(
+            ewts_id,
+            ewts::PAYLOAD_ERROR,
+            -1.0,
+            std::string("Malformed payload JSON: ") + e.what(),
+            "");
+        return false;
+    }
+    catch (const boost::property_tree::ptree_error& e)
+    {
+        LogPayload(
+            ewts_id,
+            ewts::PAYLOAD_ERROR,
+            -1.0,
+            std::string("Malformed payload fields: ") + e.what(),
+            "");
+        return false;
+    }
+}
+
+void Logger::LogPayload(
+    const char* ewts_id,
+    const std::string& status,
+    double prog,
+    const std::string& msg,
+    const std::string& modnm)
+{
+    Logger* logger = GetLogger();
+
+    if (!logger->OpenPayloadFileIfNeeded()) {
+        return;
+    }
+
+    std::ostringstream json;
+    bool first = true;
+
+    auto add_string = [&](const char* key, const std::string& value)
+    {
+        if (!first) json << ',';
+        first = false;
+        json << '"' << key << "\":";
+        if (value.empty() || value == ewts::PAYLOAD_NULL) {
+            json << "null";
+        } else {
+            json << '"' << EscapeJson(value) << '"';
+        }
+    };
+
+    auto add_double = [&](const char* key, double value)
+    {
+        if (!first) json << ',';
+        first = false;
+        json << '"' << key << "\":";
+        if (value < 0.0) {
+            json << "null";
+        } else {
+            json << std::defaultfloat << value;
+        }
+    };
+
+    json << '{';
+
+    add_string("status", status);
+    add_double("prog", prog);
+    add_string("msg", msg);
+    add_string("modnm", modnm);
+
+    json << '}';
+
+    const std::string module_name =
+    (ewts_id && std::strlen(ewts_id) > 0)
+        ? std::string(ewts_id)
+        : logger->ewtsId;
+
+    const std::string prefix =
+        CreateTimestamp(true, true) + " " +
+        PadEwtsId(module_name) + " " +
+        LevelToFixedString(LogLevel::STATUS) + " ";
+
+    const std::string record =
+        prefix +
+        std::string(kPayloadBeginSentinel) +
+        json.str() +
+        std::string(kPayloadEndSentinel) +
+        "\n";
+
+    static std::mutex payloadLogMutex;
+    {
+        std::lock_guard<std::mutex> lock(payloadLogMutex);
+
+        logger->payloadFile << record;
+        logger->payloadFile.flush();
+    }
 }

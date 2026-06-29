@@ -36,6 +36,18 @@ LEVELS: Dict[str, int] = {
 }
 DEFAULT_LEVEL_NAME = "INFO"
 
+# These are populated from the payload-status spec via _load_payload_statuses()
+PAYLOAD_STATUSES: Dict[str, str] = {
+    "NULL": "NULL",
+    "INITTING": "INITIALIZING",
+    "INITTED": "INITIALIZED",
+    "STARTING": "STARTING",
+    "INPROG": "IN_PROGRESS",
+    "COMPLETE": "COMPLETE",
+    "ERROR": "ERROR",
+}
+DEFAULT_PAYLOAD_STATUS_NAME = "ERROR"
+
 
 @dataclass(frozen=True)
 class Module:
@@ -87,6 +99,7 @@ def _c_block_banner(
     generated_utc: str,
     registry_meta: Optional[dict] = None,
     levels_meta: Optional[dict] = None,
+    payload_meta: Optional[dict] = None,
 ) -> str:
     # Block comment is valid in both C and C++
     lines = [
@@ -109,6 +122,13 @@ def _c_block_banner(
             lines.append(
                 f" * Log levels spec generated (UTC): {levels_meta.get('spec_generated_utc')}"
             )
+    if payload_meta:
+        lines.append(f" * Payload status spec: {payload_meta.get('spec_path', 'unknown')}")
+        lines.append(f" * Payload status spec version: {payload_meta.get('spec_version', 'unknown')}")
+        if payload_meta.get("spec_generated_utc"):
+            lines.append(
+                f" * Payload status spec generated (UTC): {payload_meta.get('spec_generated_utc')}"
+            )
     lines.append(" */\n")
     return "\n".join(lines)
 
@@ -118,6 +138,7 @@ def _py_banner(
     generated_utc: str,
     registry_meta: Optional[dict] = None,
     levels_meta: Optional[dict] = None,
+    payload_meta: Optional[dict] = None,
 ) -> str:
     lines = [
         "# AUTO-GENERATED FILE. DO NOT EDIT.",
@@ -138,6 +159,13 @@ def _py_banner(
             lines.append(
                 f"# Log levels spec generated (UTC): {levels_meta.get('spec_generated_utc')}"
             )
+    if payload_meta:
+        lines.append(f"# Payload status spec: {payload_meta.get('spec_path', 'unknown')}")
+        lines.append(f"# Payload status spec version: {payload_meta.get('spec_version', 'unknown')}")
+        if payload_meta.get("spec_generated_utc"):
+            lines.append(
+                f"# Payload status spec generated (UTC): {payload_meta.get('spec_generated_utc')}"
+            )
     return "\n".join(lines) + "\n\n"
 
 
@@ -146,6 +174,7 @@ def _f_banner(
     generated_utc: str,
     registry_meta: Optional[dict] = None,
     levels_meta: Optional[dict] = None,
+    payload_meta: Optional[dict] = None,
 ) -> str:
     lines = [
         "! AUTO-GENERATED FILE. DO NOT EDIT.",
@@ -165,6 +194,13 @@ def _f_banner(
         if levels_meta.get("spec_generated_utc"):
             lines.append(
                 f"! Log levels spec generated (UTC): {levels_meta.get('spec_generated_utc')}"
+            )
+    if payload_meta:
+        lines.append(f"! Payload status spec: {payload_meta.get('spec_path', 'unknown')}")
+        lines.append(f"! Payload status spec version: {payload_meta.get('spec_version', 'unknown')}")
+        if payload_meta.get("spec_generated_utc"):
+            lines.append(
+                f"! Payload status spec generated (UTC): {payload_meta.get('spec_generated_utc')}"
             )
     return "\n".join(lines) + "\n\n"
 
@@ -294,6 +330,63 @@ def _load_log_levels(log_levels_path: Path) -> dict:
         "spec_generated_utc": generated_utc,
     }
 
+
+
+def _load_payload_statuses(payload_status_path: Path) -> dict:
+    """Load payload statuses from JSON into global PAYLOAD_STATUSES.
+
+    Expected shape (minimal):
+      {"statuses": {"NULL": "NULL", "INITTING": "INITIALIZING", "COMPLETE": "COMPLETE", ...}}
+
+    Extra keys are allowed and used for provenance (e.g., version, generated_utc).
+    Returns metadata for banners.
+    """
+    global PAYLOAD_STATUSES, DEFAULT_PAYLOAD_STATUS_NAME
+
+    data = json.loads(payload_status_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit("payload_status.json must be a JSON object at the top level.")
+
+    statuses = data.get("statuses")
+    if not isinstance(statuses, dict) or not statuses:
+        raise SystemExit("payload_status.json must contain a non-empty 'statuses' object.")
+
+    parsed: Dict[str, str] = {}
+    for name, val in statuses.items():
+        if not isinstance(name, str) or not name.strip():
+            raise SystemExit("payload_status.json 'statuses' keys must be non-empty strings.")
+        if not isinstance(val, str) or not val.strip():
+            raise SystemExit(
+                f"payload_status.json status '{name}' must be a non-empty string, got {type(val).__name__}."
+            )
+        key = name.strip().upper()
+        value = val.strip().upper()
+        parsed[key] = value
+
+    PAYLOAD_STATUSES = parsed
+
+    if "ERROR" in PAYLOAD_STATUSES:
+        DEFAULT_PAYLOAD_STATUS_NAME = "ERROR"
+    else:
+        DEFAULT_PAYLOAD_STATUS_NAME = next(iter(PAYLOAD_STATUSES))
+
+    version = data.get("version")
+    generated_utc = data.get("generated_utc")
+
+    if version is not None and not isinstance(version, int):
+        raise SystemExit(
+            f"payload_status.json 'version' must be an integer when present, got {type(version).__name__}."
+        )
+    if generated_utc is not None and not isinstance(generated_utc, str):
+        raise SystemExit(
+            f"payload_status.json 'generated_utc' must be a string when present, got {type(generated_utc).__name__}."
+        )
+
+    return {
+        "spec_path": payload_status_path.as_posix(),  # caller will rewrite to repo-relative
+        "spec_version": str(version) if version is not None else "unknown",
+        "spec_generated_utc": generated_utc,
+    }
 
 # ----------------------- Generators -----------------------
 
@@ -987,6 +1080,74 @@ def _generate_python_module_keys(modules: List[Module], out_py: Path, *, registr
     _write_text(out_py, "".join(lines))
 
 
+
+def _generate_c_payload_status(out_h: Path, *, payload_meta: dict) -> None:
+    defines = "\n".join(
+        [f'#define PAYLOAD_{name} "{value}"' for name, value in PAYLOAD_STATUSES.items()]
+    )
+    content = _c_block_banner(
+        "C",
+        generated_utc=GEN_UTC,
+        payload_meta=payload_meta,
+    ) + f"""#ifndef PAYLOAD_STATUS_H
+#define PAYLOAD_STATUS_H
+
+#ifdef __cplusplus
+extern "C" {{
+#endif
+
+/* Payload status string constants used in EWTS status payload messages. */
+{defines}
+
+#ifdef __cplusplus
+}}  // extern "C"
+#endif
+
+#endif  // PAYLOAD_STATUS_H
+"""
+    _write_text(out_h, content)
+
+
+def _generate_cpp_payload_status(out_hpp: Path, *, payload_meta: dict) -> None:
+    constants = "\n".join(
+        [f'inline constexpr const char* PAYLOAD_{name} = "{value}";' for name, value in PAYLOAD_STATUSES.items()]
+    )
+    content = _c_block_banner(
+        "C++",
+        generated_utc=GEN_UTC,
+        payload_meta=payload_meta,
+    ) + f"""#ifndef PAYLOAD_STATUS_HPP
+#define PAYLOAD_STATUS_HPP
+
+namespace ewts {{
+
+/* Payload status string constants used in EWTS status payload messages. */
+{constants}
+
+}}  // namespace ewts
+
+#endif  // PAYLOAD_STATUS_HPP
+"""
+    _write_text(out_hpp, content)
+
+
+def _generate_fortran_payload_status(out_f90: Path, *, payload_meta: dict) -> None:
+    max_status_len = max((len(v) for v in PAYLOAD_STATUSES.values()), default=1)
+    content = _f_banner(
+        generated_utc=GEN_UTC,
+        payload_meta=payload_meta,
+    ) + f"""module ewts_payload_status
+  implicit none
+
+  integer, parameter :: PAYLOAD_STATUS_LEN = {max_status_len}
+
+"""
+    for name, value in PAYLOAD_STATUSES.items():
+        content += f'  character(len=*), parameter :: PAYLOAD_{name} = "{value}"\n'
+    content += "\nend module ewts_payload_status\n"
+    _write_text(out_f90, content)
+
+
 def _generate_python_log_levels(out_py: Path, *, levels_meta: dict) -> None:
     lines = [
         _py_banner(generated_utc=GEN_UTC, levels_meta=levels_meta),
@@ -1031,68 +1192,127 @@ def _generate_python_log_levels(out_py: Path, *, levels_meta: dict) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Generate per-language EWTS module keys and log-level constants from spec files."
+        description=(
+            "Generate EWTS language-specific include/source files from the "
+            "specification files in the spec directory."
+        ),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    ap.add_argument(
+        "--generate",
+        default="all",
+        choices=("all", "modules", "log-levels", "payload-status"),
+        help=(
+            "Select which group of files to generate. "
+            "'all' generates modules, log levels, and payload status files; "
+            "'modules' generates module keys/constants from the module registry; "
+            "'log-levels' generates log-level files only; "
+            "'payload-status' generates C, C++, and Fortran payload-status files only."
+        ),
     )
     ap.add_argument(
         "--registry",
         default="spec/module_registry.yaml",
-        help="Path to the module registry YAML file, relative to the repo root. (default: spec/module_registry.yaml)",
+        help="Module registry specification, relative to the repository root.",
     )
     ap.add_argument(
         "--log-levels",
         default="spec/log_levels.json",
-        help="Path to the log-levels JSON file, relative to the repo root. (default: spec/log_levels.json)",
+        help="Log-level specification, relative to the repository root.",
+    )
+    ap.add_argument(
+        "--payload-status",
+        default="spec/payload_status.json",
+        help="Payload-status specification, relative to the repository root.",
+    )
+    ap.add_argument(
+        "--only-payload-status",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     ap.add_argument(
         "--repo-root",
         default=None,
-        help="Optional explicit path to the repository root. "
-        "If not provided, the repo root is inferred as the parent-of-parent directory of this script.",
+        help=(
+            "Repository root. If omitted, the repo root is inferred as the "
+            "parent of the tools directory containing this script."
+        ),
     )
     args = ap.parse_args()
+
+    # Backward-compatible alias for the earlier one-off flag.
+    if args.only_payload_status:
+        args.generate = "payload-status"
 
     script_path = Path(__file__).resolve()
     repo_root = Path(args.repo_root).resolve() if args.repo_root else _infer_repo_root_from_script(script_path)
 
     registry_path = (repo_root / args.registry).resolve()
     log_levels_path = (repo_root / args.log_levels).resolve()
+    payload_status_path = (repo_root / args.payload_status).resolve()
 
-    if not registry_path.exists():
-        raise SystemExit(f"Registry file not found: {registry_path}")
-    if not log_levels_path.exists():
-        raise SystemExit(f"Log-levels file not found: {log_levels_path}")
+    generate_modules = args.generate in {"all", "modules"}
+    generate_log_levels = args.generate in {"all", "log-levels"}
+    generate_payload_status = args.generate in {"all", "payload-status"}
 
-    # Load specs + metadata
-    rmeta = _registry_meta(repo_root, registry_path)
-    lmeta = _load_log_levels(log_levels_path)
-    # rewrite spec path to repo-relative for banners
-    lmeta["spec_path"] = _rel(repo_root, log_levels_path)
+    rmeta = None
+    lmeta = None
+    pmeta = None
+    modules: List[Module] = []
+    c_modules: List[Module] = []
+    cpp_modules: List[Module] = []
+    fortran_modules: List[Module] = []
+    python_modules: List[Module] = []
 
-    modules = _load_registry(registry_path)
-    _validate_registry(modules)
+    if generate_modules:
+        if not registry_path.exists():
+            raise SystemExit(f"Registry file not found: {registry_path}")
+        rmeta = _registry_meta(repo_root, registry_path)
+        modules = _load_registry(registry_path)
+        _validate_registry(modules)
+        c_modules = _modules_for_language(modules, "c")
+        cpp_modules = _modules_for_language(modules, "cpp")
+        fortran_modules = _modules_for_language(modules, "fortran")
+        python_modules = _modules_for_language(modules, "python")
 
-    c_modules = _modules_for_language(modules, "c")
-    cpp_modules = _modules_for_language(modules, "cpp")
-    fortran_modules = _modules_for_language(modules, "fortran")
-    python_modules = _modules_for_language(modules, "python")
+    if generate_log_levels:
+        if not log_levels_path.exists():
+            raise SystemExit(f"Log-levels file not found: {log_levels_path}")
+        lmeta = _load_log_levels(log_levels_path)
+        lmeta["spec_path"] = _rel(repo_root, log_levels_path)
+
+    if generate_payload_status:
+        if not payload_status_path.exists():
+            raise SystemExit(f"Payload-status file not found: {payload_status_path}")
+        pmeta = _load_payload_statuses(payload_status_path)
+        pmeta["spec_path"] = _rel(repo_root, payload_status_path)
 
     print("Using input specifications:")
-    print(f"  - Module registry: {rmeta['spec_path']} (version: {rmeta['spec_version']})")
-    print(f"  - Log levels spec: {lmeta['spec_path']} (version: {lmeta['spec_version']})")
+    print(f"  - Generate target: {args.generate}")
+    if rmeta:
+        print(f"  - Module registry: {rmeta['spec_path']} (version: {rmeta['spec_version']})")
+    if lmeta:
+        print(f"  - Log levels spec: {lmeta['spec_path']} (version: {lmeta['spec_version']})")
+    if pmeta:
+        print(f"  - Payload status spec: {pmeta['spec_path']} (version: {pmeta['spec_version']})")
     print(f"  - Generation UTC:  {GEN_UTC}")
     print()
 
     # Outputs (match the documented layout)
     c_mod_h = repo_root / "runtime" / "c" / "include" / "ewts" / "module_keys.h"
     c_lvl_h = repo_root / "runtime" / "c" / "include" / "ewts" / "log_levels.h"
+    c_payload_h = repo_root / "runtime" / "c" / "include" / "ewts" / "payload_status.h"
 
     cpp_mod_hpp = repo_root / "runtime" / "cpp" / "include" / "ewts" / "module_keys.hpp"
     cpp_lvl_hpp = repo_root / "runtime" / "cpp" / "include" / "ewts" / "log_levels.hpp"
+    cpp_payload_hpp = repo_root / "runtime" / "cpp" / "include" / "ewts" / "payload_status.hpp"
 
     f_mod_f90 = repo_root / "runtime" / "fortran" / "src" / "ewts" / "module_keys.f90"
     f_lvl_f90 = repo_root / "runtime" / "fortran" / "src" / "ewts" / "log_levels.f90"
+    f_payload_f90 = repo_root / "runtime" / "fortran" / "src" / "ewts" / "payload_status.f90"
 
     py_mod_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "module_keys.py"
+    py_lvl_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "log_levels.py"
 
     # Optional convenience constants to avoid typos in module keys / ids
     c_const_h = repo_root / "runtime" / "c" / "include" / "ewts" / "module_constants.h"
@@ -1102,34 +1322,38 @@ def main() -> int:
     ngen_const_hpp = repo_root / "integrations" / "ngen" / "include" / "ewts_ngen" / "ngen_module_constants.hpp"
     ngen_keys_hpp = repo_root / "integrations" / "ngen" / "include" / "ewts_ngen" / "ngen_module_keys.hpp"
 
-    py_lvl_py = repo_root / "runtime" / "python" / "ewts" / "src" / "ewts" / "log_levels.py"
+    if generate_modules:
+        assert rmeta is not None
+        _generate_c_module_keys(c_modules, c_mod_h, repo_root=repo_root, registry_meta=rmeta)
+        _generate_cpp_module_keys(cpp_modules, cpp_mod_hpp, registry_meta=rmeta)
+        _generate_fortran_module_keys(fortran_modules, f_mod_f90, registry_meta=rmeta)
+        _generate_python_module_keys(python_modules, py_mod_py, registry_meta=rmeta)
+        _generate_c_module_constants(c_modules, c_const_h, repo_root=repo_root, registry_meta=rmeta)
+        _generate_cpp_module_constants(cpp_modules, cpp_const_hpp, registry_meta=rmeta)
+        _generate_fortran_module_constants(fortran_modules, f_const_f90, registry_meta=rmeta)
+        _generate_python_module_constants(python_modules, py_const_py, registry_meta=rmeta)
+        _generate_ngen_module_constants(modules, ngen_const_hpp, registry_meta=rmeta)
+        _generate_ngen_module_keys(modules, ngen_keys_hpp, registry_meta=rmeta)
 
-    _generate_c_module_keys(c_modules, c_mod_h, repo_root=repo_root, registry_meta=rmeta)
-    _generate_c_log_levels(c_lvl_h, levels_meta=lmeta)
+    if generate_log_levels:
+        assert lmeta is not None
+        _generate_c_log_levels(c_lvl_h, levels_meta=lmeta)
+        _generate_cpp_log_levels(cpp_lvl_hpp, levels_meta=lmeta)
+        _generate_fortran_log_levels(f_lvl_f90, levels_meta=lmeta)
+        _generate_python_log_levels(py_lvl_py, levels_meta=lmeta)
 
-    _generate_cpp_module_keys(cpp_modules, cpp_mod_hpp, registry_meta=rmeta)
-    _generate_cpp_log_levels(cpp_lvl_hpp, levels_meta=lmeta)
+    if generate_payload_status:
+        assert pmeta is not None
+        _generate_c_payload_status(c_payload_h, payload_meta=pmeta)
+        _generate_cpp_payload_status(cpp_payload_hpp, payload_meta=pmeta)
+        _generate_fortran_payload_status(f_payload_f90, payload_meta=pmeta)
 
-    _generate_fortran_module_keys(fortran_modules, f_mod_f90, registry_meta=rmeta)
-    _generate_fortran_log_levels(f_lvl_f90, levels_meta=lmeta)
-
-    _generate_python_module_keys(python_modules, py_mod_py, registry_meta=rmeta)
-    _generate_python_log_levels(py_lvl_py, levels_meta=lmeta)
-    _generate_c_module_constants(c_modules, c_const_h, repo_root=repo_root, registry_meta=rmeta)
-    _generate_cpp_module_constants(cpp_modules, cpp_const_hpp, registry_meta=rmeta)
-    _generate_fortran_module_constants(fortran_modules, f_const_f90, registry_meta=rmeta)
-    _generate_python_module_constants(python_modules, py_const_py, registry_meta=rmeta)
-    _generate_ngen_module_constants(modules, ngen_const_hpp, registry_meta=rmeta)
-    _generate_ngen_module_keys(modules, ngen_keys_hpp, registry_meta=rmeta)
-
-
-    print("Wrote per-language constants for modules + log levels.\n")
+    print(f"Wrote EWTS generated files for target: {args.generate}.\n")
     print("Generated files:")
     for path in GENERATED_FILES:
         print(f"  - {_rel(repo_root, path)}")
 
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

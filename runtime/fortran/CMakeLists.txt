@@ -2,6 +2,7 @@ add_library(ewts_fortran
   src/ewts/log_levels.f90
   src/ewts/module_constants.f90
   src/ewts/module_keys.f90
+  src/ewts/payload_status.f90
   src/ewts/logger.f90
 )
 
@@ -10,6 +11,7 @@ set_source_files_properties(
   src/ewts/log_levels.f90
   src/ewts/module_constants.f90
   src/ewts/module_keys.f90
+  src/ewts/payload_status.f90
   src/ewts/logger.f90
   PROPERTIES Fortran_FORMAT FREE
 )

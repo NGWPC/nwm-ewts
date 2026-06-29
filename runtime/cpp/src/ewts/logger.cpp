@@ -23,6 +23,16 @@ __attribute__((weak))
 #endif
 void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
+#endif
+void ewts_ngen_payload_status(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
+
 namespace ewts {
 
 static constexpr const char* EV_NGEN_RESULTS_DIR = "NGEN_RESULTS_DIR";
@@ -33,6 +43,7 @@ static constexpr const char* EV_EWTS_LOG_LEVEL   = "EWTS_LOG_LEVEL";
 static int  g_mpiRank = -1;
 
 using ewts_ngen_log_fn = void(*)(const char*, int, const char*);
+using ewts_ngen_payload_status_fn = void(*)(const char*, const char*, double, const char*, const char*);
 
 static std::mutex g_registry_mtx;
 static std::unordered_map<std::string, std::unique_ptr<Logger>> g_loggers;
@@ -46,6 +57,13 @@ static bool is_ngen_active() {
 static ewts_ngen_log_fn resolve_ngen_log() {
     if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_log")) {
         return reinterpret_cast<ewts_ngen_log_fn>(sym);
+    }
+    return nullptr;
+}
+
+static ewts_ngen_payload_status_fn resolve_ngen_payload_status() {
+    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_payload_status")) {
+        return reinterpret_cast<ewts_ngen_payload_status_fn>(sym);
     }
     return nullptr;
 }
@@ -329,4 +347,23 @@ void Log(std::string_view message, LogLevel level) {
     CurrentLogger().Log(level, message);
 }
 
+void PayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm)
+{
+    static ewts_ngen_payload_status_fn g_payload_status =
+        resolve_ngen_payload_status();
+
+    if (is_ngen_active() && g_payload_status) {
+        g_payload_status(
+            ewts_id ? ewts_id : "",
+            status ? status : "",
+            prog,
+            msg ? msg : "",
+            modnm ? modnm : "");
+    }
+}
 }
