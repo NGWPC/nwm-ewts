@@ -107,6 +107,9 @@ def payload_of_log_msg(log_msg: str) -> Payload | None:
     Construct and return a Payload from a log message, if it contains the sentinel. Otherwise, return None.
     Requires that the provided string is one line (Payloads should have escape newline chars via json.dumps(asdict(self))).
 
+    If "prog" is found and is not None/null, it will be cast to float.
+    This allows prog to be stored as int for values 0 and 1 in the serialized JSON string.
+
     Parameters
     ----------
     log_msg : str
@@ -133,6 +136,13 @@ def payload_of_log_msg(log_msg: str) -> Payload | None:
         try:
             d = json.loads(payload_raw_str)
             d["status"] = Status(d["status"])
+            if "prog" in d and d["prog"] is not None:
+                if isinstance(d["prog"], (int, float)):
+                    d["prog"] = float(d["prog"])
+                else:
+                    raise ValueError(
+                        f"Expected prog to be None, int, or float, but got: {type(d['prog'])}: {d['prog']}"
+                    )
             payload = Payload(**d)
         except Exception as e:
             raise ValueError(
