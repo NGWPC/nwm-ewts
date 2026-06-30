@@ -58,6 +58,8 @@ _init_printed = set()
 def _level_name(level: int) -> str:
     return _LEVEL_NAMES.get(level, str(level))
 
+def _payload_log_path(log_path: Path) -> Path:
+    return log_path.with_name(f"{log_path.stem}_payload{log_path.suffix}")
 
 def _resolve_ewts_id(module_key_or_ewts_id: str) -> str:
     s = (module_key_or_ewts_id or "").strip()
@@ -134,6 +136,7 @@ class EwtsLogger:
         self.ewts_id = ewts_id.upper()
         self._bridge: Optional[_NgenBridge] = None
         self._log_path: Optional[Path] = None
+        self._payload_log_path: Optional[Path] = None
         self._min_level: int = LEVELS.get("INFO", 20)
 
         self._init()
@@ -236,6 +239,9 @@ class EwtsLogger:
             cfg.log_file_name,
         )
 
+        # Setup associated payload messages log file
+        self._payload_log_path = _payload_log_path(self._log_path)
+
         if self.ewts_id not in _init_printed:
             print(
                 f"{self._prefix} {self.ewts_id} logging to {self._log_path}",
@@ -285,21 +291,32 @@ class EwtsLogger:
 
     def _write(self, level: int, text: str) -> None:
 
-        if int(level) < int(self._min_level):
+        level = int(level)
+        status_level = LEVELS.get("STATUS", 60)
+        is_status = level == int(status_level)
+        
+        # STATUS always logs, regardless of configured min level.
+        if not is_status and level < int(self._min_level):
             return
 
         if self._bridge is not None:
-            self._bridge.log(self.ewts_id, int(level), text)
+            self._bridge.log(self.ewts_id, level, text)
             return
 
-        prefix = format_prefix(self.ewts_id, int(level))
+        prefix = format_prefix(self.ewts_id, level)
 
         if self._log_path is None:
             for line in split_lines(text):
                 print(f"{prefix} {line}", flush=True)
             return
 
-        with self._log_path.open("a", encoding="utf-8") as f:
+        log_path = (
+            self._payload_log_path
+            if is_status and self._payload_log_path is not None
+            else self._log_path
+        )
+
+        with log_path.open("a", encoding="utf-8") as f:
             for line in split_lines(text):
                 f.write(f"{prefix} {line}\n")
 
