@@ -1,45 +1,95 @@
 # EWTS C++ Runtime
 
-This directory contains the developer-facing documentation for the EWTS C++
-runtime library.
+The Error and Warning Trapping System (EWTS) CPP runtime provides logging support for 
+CPP modules. When linked\with the optional ngen bridge, log messages are forwarded into 
+the ngenlogging infrastructure. Otherwise, log messages are written directly by
+the CPP runtime, using the directory specified by the `EWTS_LOG_DIR`
+environment variable when available, or stdout if no usable log
+directory is configured.
 
-The C++ runtime library provides logging support for C++-based modules and shared
-runtime execution within the EWTS framework.
+It supports two logging modes:
+
+- **ngen-integrated logging**, where messages are forwarded through the optional ngen bridge.
+- **standalone logging**, where messages are written directly by the CPP runtime without the ngen bridge.
+
+The runtime shares the same logging model, log levels, payload format, and
+environment-driven configuration as the C, Fortran, and Python EWTS runtime
+libraries.
 
 ## Directory role
 
 The implementation in `runtime/cpp/` provides:
 
-- the native C++ logger implementation used outside `ngen`
-- generated C++ module keys and log-level constants
-- shared-runtime module identity handling
-- bridging support for `ngen`-integrated execution
+- Native C++ logger implementation.
+- Generated C++ module IDs, log-level constants, and payload status constants.
+- Module-scoped logger identity for shared runtime execution.
+- Optional bridging support for `ngen`-integrated execution.
 
 ## Design goals
 
-The C++ runtime is structured to preserve:
+The C++ runtime is designed to provide:
 
-- consistent behavior with the C, Fortran, and Python language-specific Runtime Libraries
-- safe module identity handling when more than one module logs in the same
-  process
-- environment-driven configuration
-- per-rank file separation for MPI execution
+- Consistent behavior with the C, Fortran, and Python runtime libraries.
+- Module-scoped logger identity when multiple modules execute in the same process.
+- Environment-driven configuration.
+- Transparent forwarding of log messages to the ngen logging infrastructure when available.
+- A standalone fallback that works without ngen or the ngen bridge library.
 
 ## Shared-runtime behavior
 
-The C++ runtime library is used in scenarios where multiple modules may run within the
-same process. Logger identity therefore needs to be module-scoped rather than
-process-global.
+Multiple modules may execute within the same process. Each logger is therefore
+associated with a specific EWTS module ID rather than being process-global,
+ensuring that log messages are correctly attributed regardless of the execution
+environment.
 
-This is especially important under `ngen`, where more than one formulation or
-module may emit log messages through the same executable.
+Installed headers are exposed under `include/ewts/`.
+
+## Public API
+
+```cpp
+namespace ewts {
+
+class Logger {
+public:
+    Logger(std::string ewts_id = "EWTS", bool ewts_ngen = false);
+
+    bool IsLoggingEnabled();
+    LogLevel GetLogLevel();
+
+    void Log(LogLevel level, std::string_view message);
+    void Log(std::string_view message, LogLevel level = LogLevel::INFO);
+    void Log(LogLevel level, const char* fmt, ...);
+};
+
+Logger& GetLogger(std::string_view ewts_id = "EWTS", bool ewts_ngen = false);
+Logger& CurrentLogger();
+
+void EwtsInit(std::string_view ewts_id, bool ewts_ngen = false);
+
+bool IsLoggingEnabled();
+LogLevel GetLogLevel();
+
+void Log(LogLevel level, std::string_view message);
+void Log(std::string_view message, LogLevel level = LogLevel::INFO);
+
+void PayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
+
+} // namespace ewts
+
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    ::ewts::PayloadStatus((ewts_id), (status), (prog), (msg), (modnm))
+
+```
 
 ## Log levels
 
-The C++ runtime library uses the canonical EWTS levels:
-
 | Level | Value |
-|---|---:|
+|-------|------:|
 | `NOTSET` | 0 |
 | `DEBUG` | 10 |
 | `PERFORM` | 15 |
@@ -47,68 +97,147 @@ The C++ runtime library uses the canonical EWTS levels:
 | `WARNING` | 30 |
 | `SEVERE` | 40 |
 | `FATAL` | 50 |
+| `STATUS` | 60 |
+
+`STATUS` is reserved for structured payload messages when running under `ngen`.
+
+## Payload status constants
+
+The C++ runtime provides predefined constants for the standard EWTS payload
+status values. These constants should be used when calling `PAYLOAD_STATUS` to
+ensure consistent status reporting across all runtime libraries.
+
+| Constant | String Value | Description |
+|----------|--------------|-------------|
+| `PAYLOAD_NULL` | `"NULL"` | No status has been assigned. |
+| `PAYLOAD_INITTING` | `"INITIALIZING"` | Module initialization is in progress. |
+| `PAYLOAD_INITTED` | `"INITIALIZED"` | Module initialization has completed successfully. |
+| `PAYLOAD_STARTING` | `"STARTING"` | Module execution is beginning. |
+| `PAYLOAD_INPROG` | `"IN_PROGRESS"` | Module execution is currently in progress. |
+| `PAYLOAD_COMPLETE` | `"COMPLETE"` | Module execution completed successfully. |
+| `PAYLOAD_ERROR` | `"ERROR"` | Module execution terminated with an error. |
+
+## Standard logging
+
+Consumer Logger.hpp
+```cpp
+#include "ewts/module_constants.hpp"
+#include "ewts/logger.hpp"
+#include "ewts/log_levels.hpp"
+
+#define LOG(...) ::ewts::GetLogger(::ewts::modules::EWTS_ID_SFT).Log(__VA_ARGS__)
+#define GetLogLevel() ::ewts::GetLogger(::ewts::modules::EWTS_ID_SFT).GetLogLevel()
+#define IsLoggingEnabled() ::ewts::GetLogger(::ewts::modules::EWTS_ID_SFT).IsLoggingEnabled()
+
+using ewts::EwtsInit;
+using ewts::LogLevel;
+
+inline constexpr const char* SFT_MODULE_ID = ewts::modules::EWTS_ID_SFT;
+```
+
+Consumer module
+
+``` cpp
+#include "Logger.hpp"
+
+  LOG(LogLevel::INFO, "Initializing SFT");
+```
+
+
+## Payload logging
+
+C++ modules can write structured STATUS payloads with `PAYLOAD_STATUS(...)`:
+
+``` c
+PAYLOAD_STATUS(
+    EWTS_ID_SFT,
+    "INITIALIZING",
+    0.1,
+    "SFT Initializing",
+    "SFT");
+```
+
+Arguments:
+
+| Argument | Meaning |
+|----------|---------|
+| `ewts_id` | EWTS ID used in the payload log prefix |
+| `status` | Payload status value, such as `INITIALIZING` or `IN_PROGRESS` |
+| `prog` | Progress value, usually `0.0` through `1.0` but can be any value|
+| `msg` | Human-readable payload message |
+| `modnm` | Module/component name written into the JSON payload |
+
+Payload logging is active only when `EWTS_USE_NGEN_BRIDGE` is enabled
+and the optional `ewts_ngen_payload_status` bridge function is
+available. Otherwise, `EwtsPayloadStatus()` performs no action.
+
 
 ## Runtime relationship to `ngen`
 
-When `ngen` integration is active, the runtime library does not own final output policy.
-Instead, the integration layer controls configuration loading, output location,
-and file naming while the runtime continues to attribute and forward messages.
+When `EWTS_USE_NGEN_BRIDGE` is enabled and the optional `ewts_ngen_bridge`
+library is linked into the application, the runtime forwards log messages into
+the ngen logging infrastructure. The integration layer owns log routing, output
+location, and file management while the runtime remains responsible for log
+formatting and module attribution.
 
 ## Environment configuration
 
-The CPP runtime participates in the same environment-driven configuration model as
-other Runtime Libraries:
-
 | Variable | Purpose |
-|---|---|
-| `NGEN_RESULTS_DIR` | `ngen` results directory |
-| `EWTS_ENABLED` | Enables or disables logging |
-| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
-| `EWTS_RANK` | MPI rank (set by ngen) for submodules to read; if unset, assumes non-MPI |
-| `<MODULE>_LOGLEVEL` | Per-module override |
-| `EWTS_LOG_DIR` | Standalone log directory |
+|----------|---------|
+| `EWTS_USE_NGEN_BRIDGE` | Enables logging through the ngen bridge when set to a truthy value (`1`, `true`, `yes`, `on`, etc.). |
+| `EWTS_ENABLED` | Enables or disables logging. |
+| `EWTS_LOG_LEVEL` | Default log level; `INFO` if undefined. |
+| `EWTS_RANK` | Optional MPI rank used in initialization messages. |
+| `<MODULE>_LOGLEVEL` | Per-module log level override. |
 
-## MPI Behavior
+## Runtime behavior
 
-When running under MPI, each rank writes to a separate file, for example:
+### ngen bridge
 
-```text
-logs/ngen_mpi_process_0.log
-logs/ngen_mpi_process_1.log
+When `EWTS_USE_NGEN_BRIDGE` is enabled and the optional
+`ewts_ngen_bridge` library is available, log messages are forwarded to the
+ngen logging infrastructure.
+
+Structured STATUS payloads generated through `PayloadStatus()` are also
+forwarded through the bridge.
+
+### Stdout fallback
+
+If the ngen bridge is not enabled or is unavailable, log messages are written
+to standard output. This provides a simple fallback for running modules outside
+of ngen while preserving the same logging API.
+
+## MPI behavior
+
+When running under MPI, the runtime prefixes initialization messages with the
+MPI rank when `EWTS_RANK` is defined. Runtime log routing is handled by the
+selected logging backend (ngen bridge or stdout fallback).
+
+## Module CMakeLists Update
+
+```cmake
+option(USE_EWTS "Build SFT with EWTS logging" ON)
+message("-- SFT CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- SFT compiled with EWTS logging")
+
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
+
+    # Always use EWTS runtime logger for CPP
+    target_link_libraries(sftbmi PRIVATE ewts::ewts_cpp)
+
+    # Built with ngen bridge
+    target_link_libraries(sftbmi PRIVATE 
+        "-Wl,--no-as-needed" ewts::ewts_ngen_bridge "-Wl,--as-needed")
+    target_compile_definitions(sftbmi PRIVATE SFT_USE_EWTS)
+else()
+    message("-- SFT compiled with stdout fallback logging")
+endif()
 ```
-
-This prevents file I/O collisions across ranks.
-
-In split-by-module mode, the file stem changes but the per-rank rule remains.
-
-## Module CMakeList Update
-
-```
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
-
-# Always use EWTS runtime logger for CPP
-target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_cpp)
-
-# Built with ngen bridge
-target_link_libraries(<cmake lib name> PRIVATE 
-    "-Wl,--no-as-needed" ewts::ewts_ngen_bridge "-Wl,--as-needed")
-target_compile_definitions(<cmake lib name> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
-```
-
-## Standalone Mode
-
-Outside the ngen results environment, standalone logging uses the following
-directory priority:
-
-1. `EWTS_LOG_DIR`
-2. `$HOME/run_logs`
-3. `./run_logs`
-
----
 
 ## Related documentation
 
-- user-facing overview: `docs/runtimes/cpp.md`
-- `ngen` implementation details: `integrations/ngen/README.md`
-- generated constants workflow: `tools/README.md`
+- User-facing overview: `docs/runtimes/cpp.md`
+- `ngen` integration: `integrations/ngen/README.md`
+- Generated constants workflow: `tools/README.md`
