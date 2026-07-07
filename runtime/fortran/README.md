@@ -1,17 +1,49 @@
+
 # EWTS Fortran Runtime
 
-The EWTS Fortran runtime provides logging support for Fortran modules running
-standalone or under `ngen`.
+The The Error and Warning Trapping System (EWTS) Fortran runtime provides 
+logging support for Fortran modules. When linked with the optional ngen 
+bridge, log messages are forwarded into the ngen logging infrastructure. 
+Otherwise, log messages are written directly by the Fortran runtime, using 
+the directory specified by the `EWTS_LOG_DIR` environment variable when 
+available, or stdout if no usable log directory is configured.
 
-The runtime implementation is located under:
+It supports two logging modes:
 
-```text
-runtime/fortran/
-```
+- **ngen-integrated logging**, where messages are forwarded through the optional ngen bridge.
+- **standalone logging**, where messages are written directly by the CPP runtime without the ngen bridge.
+
+The runtime shares the same logging model, log levels, payload format, and
+environment-driven configuration as the C, C++, and Python EWTS runtime
+libraries.
+
+## Directory role
+
+The implementation in `runtime/fortran/` provides:
+
+- Native Fortran logger implementation.
+- Generated EWTS module IDs, log level, and payload status constants.
+- Module-aware logging APIs.
+- Optional bridge support for `ngen`.
+
+## Design goals
+
+The Fortran runtime is designed to provide:
+
+- Consistent behavior across all EWTS runtime libraries.
+- Module-scoped logging.
+- Environment-driven configuration.
+- Transparent forwarding to the ngen logging infrastructure.
+- Stdout fallback outside ngen.
+
+## Shared-runtime behavior
+
+Multiple modules may execute within the same process. Each logger is therefore
+associated with a specific EWTS module ID rather than being process-global,
+ensuring that log messages are correctly attributed regardless of the execution
+environment.
 
 ## Public API
-
-The EWTS `logger` module exports module-aware logging entry points:
 
 ```fortran
 call logger_init(id)
@@ -29,12 +61,13 @@ lvl = get_log_level_module(id)
 call payload_status(ewts_id, status, prog, msg, modnm)
 ```
 
-For `ngen` execution, prefer the module-specific APIs that take an EWTS ID.
+Prefer the module-specific APIs so log messages are attributed to the correct
+EWTS module ID.
 
 ## Log levels
 
 | Level | Value |
-|---|---:|
+|-------|------:|
 | `EWTS_NOTSET` | 0 |
 | `EWTS_DEBUG` | 10 |
 | `EWTS_PERFORM` | 15 |
@@ -46,9 +79,7 @@ For `ngen` execution, prefer the module-specific APIs that take an EWTS ID.
 
 `EWTS_STATUS` is reserved for structured payload messages.
 
-## Direct EWTS usage
-
-A Fortran module can use EWTS directly:
+## Standard logging
 
 ```fortran
 use logger
@@ -62,234 +93,115 @@ call write_log_module( &
     EWTS_INFO)
 ```
 
-Initialize the module logger before the first log message. The BMI `Initialize`
-routine is usually the best location.
-
-## Submodule logger wrapper pattern
-
-Most Fortran model submodules should not call EWTS directly throughout the model
-code. Instead, each submodule should provide a small module-specific logger
-wrapper that hides whether EWTS was compiled in.
-
-The wrapper should:
-
-- import EWTS only when the submodule was built with EWTS support
-- expose the logging API expected by the submodule
-- map local log-level names to EWTS levels when EWTS is enabled
-- provide fallback log-level constants when EWTS is not enabled
-- initialize EWTS once before the first forwarded log message
-- forward standard log messages with `write_log_module(...)`
-- forward payload messages with `payload_status(...)`
-- make payload logging a no-op when EWTS is not enabled
-
-A minimal wrapper structure is:
-
-```fortran
-module mymodel_log_module
-
-#ifdef MYMODEL_USE_EWTS
-  use logger, only: ewts_write_log_module => write_log_module, &
-                    ewts_payload_status => payload_status, &
-                    ewts_is_logger_enabled_module => is_logger_enabled_module, &
-                    ewts_get_log_level_module => get_log_level_module, &
-                    ewts_logger_init_module => logger_init_module, &
-                    EWTS_NOTSET, EWTS_DEBUG, EWTS_PERFORM, EWTS_INFO, &
-                    EWTS_WARNING, EWTS_SEVERE, EWTS_FATAL, EWTS_STATUS
-  use ewts_module_constants, only: EWTS_ID_MYMODEL
-#endif
-
-  implicit none
-  private
-
-#ifdef MYMODEL_USE_EWTS
-  integer, parameter, public :: NOTSET            = EWTS_NOTSET
-  integer, parameter, public :: LOG_LEVEL_DEBUG   = EWTS_DEBUG
-  integer, parameter, public :: LOG_LEVEL_PERFORM = EWTS_PERFORM
-  integer, parameter, public :: LOG_LEVEL_INFO    = EWTS_INFO
-  integer, parameter, public :: LOG_LEVEL_WARNING = EWTS_WARNING
-  integer, parameter, public :: LOG_LEVEL_SEVERE  = EWTS_SEVERE
-  integer, parameter, public :: LOG_LEVEL_FATAL   = EWTS_FATAL
-  integer, parameter, public :: LOG_LEVEL_STATUS  = EWTS_STATUS
-#else
-  integer, parameter, public :: NOTSET            = 0
-  integer, parameter, public :: LOG_LEVEL_DEBUG   = 10
-  integer, parameter, public :: LOG_LEVEL_PERFORM = 15
-  integer, parameter, public :: LOG_LEVEL_INFO    = 20
-  integer, parameter, public :: LOG_LEVEL_WARNING = 30
-  integer, parameter, public :: LOG_LEVEL_SEVERE  = 40
-  integer, parameter, public :: LOG_LEVEL_FATAL   = 50
-#endif
-
-  public :: write_log
-  public :: payload_status
-  public :: is_logger_enabled
-  public :: get_log_level
-
-#ifdef MYMODEL_USE_EWTS
-  logical, save :: did_init = .false.
-#endif
-
-contains
-
-#ifdef MYMODEL_USE_EWTS
-  subroutine ensure_init()
-    if (.not. did_init) then
-      call ewts_logger_init_module(EWTS_ID_MYMODEL)
-      did_init = .true.
-    end if
-  end subroutine ensure_init
-#endif
-
-  subroutine write_log(message, level)
-    character(len=*), intent(in) :: message
-    integer, intent(in) :: level
-
-#ifdef MYMODEL_USE_EWTS
-    call ensure_init()
-    call ewts_write_log_module(EWTS_ID_MYMODEL, trim(message), level)
-#else
-    write(*, '(A)') trim(message)
-#endif
-  end subroutine write_log
-
-  subroutine payload_status(status, prog, msg, modnm)
-    character(len=*), intent(in) :: status
-    real(8), intent(in) :: prog
-    character(len=*), intent(in) :: msg
-    character(len=*), intent(in) :: modnm
-
-#ifdef MYMODEL_USE_EWTS
-    character(len=32) :: payload_modnm
-
-    call ensure_init()
-
-    if (len_trim(modnm) > 0) then
-      payload_modnm = trim(modnm)
-    else
-      payload_modnm = EWTS_ID_MYMODEL
-    end if
-
-    call ewts_payload_status( &
-        EWTS_ID_MYMODEL, &
-        trim(status), &
-        prog, &
-        trim(msg), &
-        trim(payload_modnm))
-#else
-    ! No payload support in fallback logger.
-#endif
-  end subroutine payload_status
-
-  logical function is_logger_enabled()
-#ifdef MYMODEL_USE_EWTS
-    call ensure_init()
-    is_logger_enabled = ewts_is_logger_enabled_module(EWTS_ID_MYMODEL)
-#else
-    is_logger_enabled = .true.
-#endif
-  end function is_logger_enabled
-
-  integer function get_log_level()
-#ifdef MYMODEL_USE_EWTS
-    call ensure_init()
-    get_log_level = ewts_get_log_level_module(EWTS_ID_MYMODEL)
-#else
-    get_log_level = LOG_LEVEL_INFO
-#endif
-  end function get_log_level
-
-end module mymodel_log_module
-```
-
-The model code then uses only the local wrapper:
-
-```fortran
-use mymodel_log_module, only: write_log, payload_status, LOG_LEVEL_INFO
-
-call write_log("Initializing model", LOG_LEVEL_INFO)
-
-call payload_status( &
-    "INITIALIZING", &
-    0.1d0, &
-    "Initializing model", &
-    "")
-```
-
-This keeps the model source independent of the EWTS build option. When EWTS is
-enabled, messages are forwarded to EWTS. When EWTS is not enabled, the wrapper
-uses its fallback behavior.
+Initialize the logger before writing the first log message.
 
 ## Payload logging
 
-Payload messages use:
-
 ```fortran
-call payload_status(ewts_id, status, prog, msg, modnm)
+call payload_status( &
+    EWTS_ID_NOAH_OWP_MODULAR, &
+    PAYLOAD_INITTING, &
+    0.1d0, &
+    "Initializing NOAHOWP BMI", &
+    "NOAHOWP")
 ```
-
-Arguments:
 
 | Argument | Meaning |
-|---|---|
-| `ewts_id` | EWTS ID used in the payload log prefix |
-| `status` | Payload status value, such as `INITIALIZING` or `IN_PROGRESS` |
-| `prog` | Progress value, usually `0.0d0` through `1.0d0` |
-| `msg` | Human-readable payload message |
-| `modnm` | Module/component name written into the JSON payload |
+|----------|---------|
+| `ewts_id` | EWTS ID used in the payload log prefix. |
+| `status` | Payload status such as `INITIALIZING` or `IN_PROGRESS`. |
+| `prog` | Progress value, typically `0.0d0` through `1.0d0`. |
+| `msg` | Human-readable payload message. |
+| `modnm` | Module/component name written into the JSON payload. |
 
-When the `ngen` bridge is active, payload messages are written to the payload log
-as STATUS records:
+## Payload status constants
 
-```text
-2026-06-23T23:42:36.219Z NOAHOWP  STATUS  <MSG_DATA>{"status":"INITIALIZING","prog":0.1,"msg":"Initializing NOAHOWP BMI","modnm":"NOAHOWP"}</MSG_DATA>
-```
+| Constant | String Value | Description |
+|----------|--------------|-------------|
+| `PAYLOAD_NULL` | `"NULL"` | No status assigned. |
+| `PAYLOAD_INITTING` | `"INITIALIZING"` | Module initialization in progress. |
+| `PAYLOAD_INITTED` | `"INITIALIZED"` | Module initialization complete. |
+| `PAYLOAD_STARTING` | `"STARTING"` | Module execution beginning. |
+| `PAYLOAD_INPROG` | `"IN_PROGRESS"` | Module execution in progress. |
+| `PAYLOAD_COMPLETE` | `"COMPLETE"` | Module execution completed successfully. |
+| `PAYLOAD_ERROR` | `"ERROR"` | Module execution terminated with an error. |
 
-Payload logs are an `ngen` integration feature. The Fortran runtime does not
-write payload records in standalone mode.
+Payload logging is active only when `EWTS_USE_NGEN_BRIDGE` is enabled and the
+optional bridge function is available. Otherwise, `payload_status()` performs
+no action.
+
+## Submodule wrapper pattern
+
+The recommended integration pattern is to provide a small module-specific wrapper
+that:
+
+- Imports EWTS only when the model is built with EWTS support.
+- Maps local log-level constants to EWTS constants.
+- Initializes EWTS once before the first log message.
+- Forwards log messages using `write_log_module()`.
+- Forwards payload messages using `payload_status()`.
+- Falls back to simple stdout logging when EWTS is not enabled.
+
+For an example wrapper implementation, see `noah-owp-modular/src/noahowpLogger.f90`
+
+## Runtime relationship to `ngen`
+
+When `EWTS_USE_NGEN_BRIDGE` is enabled and the optional bridge library is
+available, log messages and STATUS payloads are forwarded to the ngen logging
+infrastructure.
 
 ## Environment configuration
 
 | Variable | Purpose |
-|---|---|
-| `NGEN_RESULTS_DIR` | `ngen` results directory |
-| `EWTS_ENABLED` | Enables or disables logging |
-| `EWTS_LOG_LEVEL` | Default log level; INFO if undefined |
-| `EWTS_RANK` | MPI rank exported by `ngen` |
-| `<MODULE>_LOGLEVEL` | Per-module log level override |
-| `EWTS_LOG_DIR` | Standalone log directory |
+|----------|---------|
+| `EWTS_USE_NGEN_BRIDGE` | Enables logging through the ngen bridge when set to a truthy value (`1`, `true`, `yes`, `on`, etc.). |
+| `EWTS_ENABLED` | Enables or disables logging. |
+| `EWTS_LOG_LEVEL` | Default log level; `INFO` if undefined. |
+| `EWTS_RANK` | Optional MPI rank used in initialization messages. |
+| `<MODULE>_LOGLEVEL` | Per-module log level override. |
 
-## Standalone behavior
+## Runtime behavior
 
-Outside the `ngen` results environment, standard Fortran log messages are written
-to the standalone EWTS log location. If the module provides its own wrapper
-fallback and EWTS is not compiled in, fallback behavior is controlled by that
-wrapper.
+### ngen bridge
 
-## CMake
+When the bridge is enabled, log messages and payloads are forwarded through the
+ngen logging infrastructure.
 
-A Fortran target using the EWTS runtime should link the Fortran runtime library:
+### Stdout fallback
 
-```cmake
-find_package(ewts CONFIG REQUIRED)
+If the bridge is not enabled or unavailable, log messages are written to
+standard output. Payload logging becomes a no-op.
 
-target_link_libraries(<target> PRIVATE ewts::ewts_fortran)
-```
+## MPI behavior
 
-If the target should use the `ngen` bridge, also link the bridge and define the
-bridge compile definition:
+Initialization messages are prefixed with the MPI rank when `EWTS_RANK` is
+defined. Runtime log routing is handled by the selected backend.
 
-```cmake
-target_link_libraries(<target> PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(<target> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
-```
+## CMakeLists.txt
 
-A submodule-specific wrapper usually also needs its own build flag, for example:
+Example
 
 ```cmake
-target_compile_definitions(<target> PRIVATE MYMODEL_USE_EWTS)
-```
+option(USE_EWTS "Build NOAHOWP with EWTS logging" ON)
+message("-- NOAHOWP CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- NOAHOWP compiled with EWTS logging")
 
-That flag controls whether the wrapper imports EWTS or uses fallback behavior.
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
+
+    # Always use EWTS runtime logger for Fortran
+    target_link_libraries(surfacebmi PRIVATE ewts::ewts_fortran)
+
+    # Built with ngen bridge
+    target_link_libraries(surfacebmi PRIVATE 
+        ewts::ewts_ngen_bridge
+    )
+    target_compile_definitions(surfacebmi PRIVATE NOAHOWP_USE_EWTS)
+else()
+    message("-- NOAHOWP compiled with stdout fallback logging")
+endif()
+```
 
 ## Related documentation
 

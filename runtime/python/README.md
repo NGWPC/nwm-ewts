@@ -2,6 +2,10 @@
 
 The EWTS Python runtime provides the Python package implementation of the NWM Error and Warning Trapping System (EWTS). It supports standalone Python logging, logging through the `ngen` EWTS bridge when available, and structured status/data payloads embedded in EWTS log messages.
 
+The runtime shares the same logging model, log levels, payload format, and
+environment-driven configuration as the C, C++, and Fortran EWTS runtime
+libraries.
+
 The package is installed and imported as:
 
 ```python
