@@ -35,7 +35,6 @@ public:
 
 private:
     void init_once();
-    void open_standalone_file();
     bool have_ngen_bridge() const;
     std::string module_loglevel_env() const;
     void pad_id();
@@ -48,11 +47,8 @@ private:
     bool enabled_ = true;
     LogLevel level_ = LogLevel::INFO;
 
-    std::string path_;
-
     mutable std::mutex init_mtx_;
     mutable std::mutex log_mtx_;
-    std::ofstream out_;
 };
 
 Logger& GetLogger(std::string_view ewts_id, bool ewts_ngen = true);

@@ -1,13 +1,11 @@
 #include "ewts/logger.h"
 
 #include <ctype.h>
-#include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -28,10 +26,9 @@ void ewts_ngen_payload_status(
     const char* msg,
     const char* modnm);
 
-#define EV_NGEN_RESULTS_DIR "NGEN_RESULTS_DIR"
-#define EV_EWTS_ENABLED     "EWTS_ENABLED"
-#define EV_EWTS_LOG_DIR     "EWTS_LOG_DIR"
-#define EV_EWTS_LOG_LEVEL   "EWTS_LOG_LEVEL"
+#define EV_EWTS_USE_NGEN_BRIDGE "EWTS_USE_NGEN_BRIDGE"
+#define EV_EWTS_ENABLED         "EWTS_ENABLED"
+#define EV_EWTS_LOG_LEVEL       "EWTS_LOG_LEVEL"
 
 static int g_mpiRank = -1;
 
@@ -42,8 +39,6 @@ typedef struct ewts_logger_state {
     int initialized;
     int enabled;
     LogLevel level;
-    FILE* file;
-    char path[1024];
     struct ewts_logger_state* next;
 } ewts_logger_state;
 
@@ -85,11 +80,6 @@ static void upper_copy(const char* in, char* out, size_t out_sz) {
     out[i] = '\0';
 }
 
-static int is_ngen_active(void) {
-    const char* v = getenv(EV_NGEN_RESULTS_DIR);
-    return (v && v[0] != '\0');
-}
-
 static int parse_enabled(const char* v) {
     if (!v || v[0] == '\0') return 1;
     char s[32];
@@ -101,6 +91,11 @@ static int parse_enabled(const char* v) {
         return 0;
     }
     return 1;
+}
+
+static int is_ngen_active(void) {
+    const char* v = getenv(EV_EWTS_USE_NGEN_BRIDGE);
+    return (v && v[0] != '\0' && parse_enabled(v));
 }
 
 static LogLevel parse_level(const char* v) {
@@ -172,44 +167,6 @@ static void utc_timestamp_iso_ms(char* buf, size_t sz) {
     buf[n] = '\0';
 }
 
-static void utc_timestamp_compact(char* buf, size_t sz) {
-    time_t t = time(NULL);
-    struct tm tm_utc;
-    gmtime_r(&t, &tm_utc);
-    strftime(buf, sz, "%Y%m%dT%H%M%S", &tm_utc);
-}
-
-static int dir_exists(const char* path) {
-    struct stat st;
-    return (stat(path, &st) == 0) && S_ISDIR(st.st_mode);
-}
-
-static int mkdir_p(const char* path) {
-    char tmp[1024];
-    size_t len;
-    char* p;
-
-    if (!path || path[0] == '\0') return 0;
-    snprintf(tmp, sizeof(tmp), "%s", path);
-    len = strlen(tmp);
-    if (len == 0) return 0;
-    if (tmp[len - 1] == '/') tmp[len - 1] = '\0';
-
-    for (p = tmp + 1; *p; ++p) {
-        if (*p == '/') {
-            *p = '\0';
-            if (!dir_exists(tmp)) {
-                if (mkdir(tmp, 0775) != 0 && errno != EEXIST) return 0;
-            }
-            *p = '/';
-        }
-    }
-    if (!dir_exists(tmp)) {
-        if (mkdir(tmp, 0775) != 0 && errno != EEXIST) return 0;
-    }
-    return 1;
-}
-
 static void build_module_loglevel_env(const char* ewts_id, char* out, size_t out_sz) {
     size_t n = 0;
     const char* suffix = "_LOGLEVEL";
@@ -234,49 +191,6 @@ static void pad_ewts_id(ewts_logger_state* st) {
         st->ewts_id_padded[i] = ' ';
     }
     st->ewts_id_padded[8] = '\0';
-}
-
-static void open_standalone_file(ewts_logger_state* st) {
-    char log_dir[1024];
-    char ts[32];
-    const char* dir;
-    int n;
-
-    if (st->file) return;
-
-    dir = getenv(EV_EWTS_LOG_DIR);
-    if (!(dir && dir[0] != '\0')) {
-        st->file = stdout;
-        return;
-    }
-    snprintf(log_dir, sizeof(log_dir), "%s", dir);
-    (void)mkdir_p(log_dir);
-    utc_timestamp_compact(ts, sizeof(ts));
-
-    n = snprintf(st->path, sizeof(st->path), "%s/%s_%s.log", log_dir, st->ewts_id, ts);
-    if (n < 0 || (size_t)n >= sizeof(st->path)) {
-        n = snprintf(st->path, sizeof(st->path), "%s/%s.log", log_dir, st->ewts_id);
-        if (n < 0 || (size_t)n >= sizeof(st->path)) {
-            fprintf(stderr,
-                    "EWTS ERROR: Log path too long (dir='%s', id='%s'). Falling back to stdout.\n",
-                    log_dir, st->ewts_id);
-            st->path[0] = '\0';
-            st->file = stdout;
-            return;
-        } else {
-            fprintf(stderr,
-                    "EWTS WARNING: Log path truncated using shorter filename '%s'.\n",
-                    st->path);
-        }
-    }
-
-    st->file = fopen(st->path, "a");
-    if (!st->file) {
-        fprintf(stderr,
-                "EWTS ERROR: Failed to open log file '%s'. Falling back to stdout.\n",
-                st->path);
-        st->file = stdout;
-    }
 }
 
 static void init_logger_state(ewts_logger_state* st) {
@@ -325,7 +239,7 @@ static void init_logger_state(ewts_logger_state* st) {
     if (st->use_ngen && is_ngen_active() && ewts_ngen_log) {
         fprintf(stdout, "%s %s using ngen for logging\n", prefix, st->ewts_id);
     } else {
-        fprintf(stdout, "%s %s logging standalone\n", prefix, st->ewts_id);
+        fprintf(stdout, "%s %s using stdout fallback for logging\n", prefix, st->ewts_id);
     }
     fflush(stdout);
 }
@@ -359,8 +273,6 @@ static ewts_logger_state* get_logger_state(const char* ewts_id, int ewts_ngen) {
     cur->enabled = 1;
     cur->level = INFO;
     cur->initialized = 0;
-    cur->file = NULL;
-    cur->path[0] = '\0';
 
     cur->next = g_loggers;
     g_loggers = cur;
@@ -400,10 +312,8 @@ static void v_log_with_state(ewts_logger_state* st, LogLevel level, const char* 
     lvl_str = level_name_padded(level);
 
     pthread_mutex_lock(&g_write_mutex);
-    open_standalone_file(st);
-
     {
-        FILE* out = st->file ? st->file : stdout;
+        FILE* out = stdout;
         char* saveptr = NULL;
         char* line = strtok_r(msg, "\n", &saveptr);
 

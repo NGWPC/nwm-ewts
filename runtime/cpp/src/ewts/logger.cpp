@@ -5,7 +5,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
-#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -35,10 +34,9 @@ void ewts_ngen_payload_status(
 
 namespace ewts {
 
-static constexpr const char* EV_NGEN_RESULTS_DIR = "NGEN_RESULTS_DIR";
-static constexpr const char* EV_EWTS_ENABLED     = "EWTS_ENABLED";
-static constexpr const char* EV_EWTS_LOG_DIR     = "EWTS_LOG_DIR";
-static constexpr const char* EV_EWTS_LOG_LEVEL   = "EWTS_LOG_LEVEL";
+static constexpr const char* EV_EWTS_USE_NGEN_BRIDGE = "EWTS_USE_NGEN_BRIDGE";
+static constexpr const char* EV_EWTS_ENABLED         = "EWTS_ENABLED";
+static constexpr const char* EV_EWTS_LOG_LEVEL       = "EWTS_LOG_LEVEL";
 
 static int  g_mpiRank = -1;
 
@@ -48,25 +46,6 @@ using ewts_ngen_payload_status_fn = void(*)(const char*, const char*, double, co
 static std::mutex g_registry_mtx;
 static std::unordered_map<std::string, std::unique_ptr<Logger>> g_loggers;
 static thread_local Logger* g_current_logger = nullptr;
-
-static bool is_ngen_active() {
-    const char* v = std::getenv(EV_NGEN_RESULTS_DIR);
-    return (v && *v);
-}
-
-static ewts_ngen_log_fn resolve_ngen_log() {
-    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_log")) {
-        return reinterpret_cast<ewts_ngen_log_fn>(sym);
-    }
-    return nullptr;
-}
-
-static ewts_ngen_payload_status_fn resolve_ngen_payload_status() {
-    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_payload_status")) {
-        return reinterpret_cast<ewts_ngen_payload_status_fn>(sym);
-    }
-    return nullptr;
-}
 
 static std::string trim_upper(std::string s) {
     auto l = s.find_first_not_of(" \t\r\n");
@@ -81,6 +60,25 @@ static bool parse_enabled(const char* v) {
     std::string s = trim_upper(v);
     if (s.empty()) return true;
     return !(s == "0" || s == "FALSE" || s == "NO" || s == "OFF" || s == "DISABLED");
+}
+
+static bool is_ngen_active() {
+    const char* v = std::getenv(EV_EWTS_USE_NGEN_BRIDGE);
+    return v && *v && parse_enabled(v);
+}
+
+static ewts_ngen_log_fn resolve_ngen_log() {
+    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_log")) {
+        return reinterpret_cast<ewts_ngen_log_fn>(sym);
+    }
+    return nullptr;
+}
+
+static ewts_ngen_payload_status_fn resolve_ngen_payload_status() {
+    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_payload_status")) {
+        return reinterpret_cast<ewts_ngen_payload_status_fn>(sym);
+    }
+    return nullptr;
 }
 
 static LogLevel parse_level(const char* v) {
@@ -135,15 +133,6 @@ static std::string utc_timestamp_iso_ms() {
     return std::string(out);
 }
 
-static std::string utc_timestamp_compact() {
-    std::time_t t = std::time(nullptr);
-    tm tm_utc{};
-    gmtime_r(&t, &tm_utc);
-    char out[32];
-    std::strftime(out, sizeof(out), "%Y%m%dT%H%M%S", &tm_utc);
-    return std::string(out);
-}
-
 Logger::Logger(std::string ewts_id, bool ewts_ngen)
     : ewts_id_(trim_upper(std::move(ewts_id))), use_ngen_(ewts_ngen) {}
 
@@ -159,29 +148,6 @@ void Logger::pad_id() {
 bool Logger::have_ngen_bridge() const {
     static ewts_ngen_log_fn g_ngen_log = resolve_ngen_log();
     return use_ngen_ && is_ngen_active() && (g_ngen_log != nullptr);
-}
-
-void Logger::open_standalone_file() {
-    if (out_.is_open()) return;
-
-    // EV_EWTS_LOG_DIR is a fallback env var not set by ngen
-    // RTE or the user can set this when running standalone
-    // to direct where the logs should be written
-    const char* dir = std::getenv(EV_EWTS_LOG_DIR);
-
-    // New default: if EWTS_LOG_DIR is not explicitly set,
-    // do not open a file. Log() will fall back to std::cout.
-    if (!(dir && *dir)) {
-        path_.clear();
-        return;
-    }
-
-    std::string log_dir = dir;
-
-    std::filesystem::create_directories(log_dir);
-
-    path_ = log_dir + "/" + ewts_id_ + "_" + utc_timestamp_compact() + ".log";
-    out_.open(path_, std::ios::out | std::ios::app);
 }
 
 void Logger::init_once() {
@@ -240,7 +206,7 @@ void Logger::init_once() {
         std::cout << oss.str() << std::flush;
     }
     else
-        std::cout << prefix << ewts_id_ << " logging standalone" << std::endl;
+        std::cout << prefix << ewts_id_ << " using stdout fallback for logging" << std::endl;
 }
 
 bool Logger::IsLoggingEnabled() {
@@ -270,9 +236,7 @@ void Logger::Log(LogLevel level, std::string_view message) {
     const char* lvl = level_name_padded(level);
 
     std::lock_guard<std::mutex> lk(log_mtx_);
-    open_standalone_file();
-
-    std::ostream& out = out_.is_open() ? out_ : std::cout;
+    std::ostream& out = std::cout;
     out << ts << " " << ewts_id_padded_ << " " << lvl << " " << message << "\n";
     out.flush();
 }
