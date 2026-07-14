@@ -3,24 +3,31 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ngwpc.github.io/nwm-ewts/runtimes/cpp/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>C++ Runtime Library - EWTS Documentation</title>
+    <title>C++ Runtime - EWTS Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "C++ Runtime Library";
+        var mkdocs_page_name = "C++ Runtime";
         var mkdocs_page_input_path = "runtimes/cpp.md";
-        var mkdocs_page_url = "/nwm-ewts/runtimes/cpp/";
+        var mkdocs_page_url = null;
       </script>
     
     <!--[if lt IE 9]>
       <script src="../../js/html5shiv.min.js"></script>
     <![endif]-->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
       <script>hljs.highlightAll();</script> 
 </head>
 
@@ -43,55 +50,90 @@
                 <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../design-improvements/">Design Improvements</a>
+                </li>
+              </ul>
               <p class="caption"><span class="caption-text">Getting Started</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../installation/">Installation</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/installation/">Installation and Build</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../contributing/">Contributing</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/configuration/">Configuration</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Architecture</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/logging-model/">Logging Model</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/configuration/">Configuration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/message-flow/">Message Flow</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/generated-constants/">Generated Constants</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/status-payloads/">Payload Logging</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/design-improvements/">Design improvements</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">C++ Runtime</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#intended-use">Intended use</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#relationship-to-the-ngen-bridge">Relationship to the ngen bridge</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-responsibilities">Runtime responsibilities</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#payload-message-guidance">Payload message guidance</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../fortran/">Fortran Runtime</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Integrations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/ngen/">ngen Integration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/ngen/">ngen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/rte/">RTE</a>
                   </li>
               </ul>
-              <p class="caption"><span class="caption-text">Language Runtime Libraries</span></p>
-              <ul class="current">
-                  <li class="toctree-l1"><a class="reference internal" href="../c/">C Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">C++ Runtime Library</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#typical-use">Typical use</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#shared-runtime-behavior">Shared-runtime behavior</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#common-log-levels">Common log levels</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#developer-reference">Developer reference</a>
-    </li>
-    </ul>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../fortran/">Fortran Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../python/">Python Runtime Package</a>
-                  </li>
-              </ul>
-              <p class="caption"><span class="caption-text">Tools</span></p>
+              <p class="caption"><span class="caption-text">Operations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../tools/generate-language-constants/">Language Constants Generator</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/docker/">Docker and Container Builds</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/validation/">Validation Checklist</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/release-notes-v2/">Version 2.0 Release Notes</a>
                   </li>
               </ul>
       </div>
@@ -108,9 +150,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-          <li class="breadcrumb-item">Language Runtime Libraries</li>
-      <li class="breadcrumb-item active">C++ Runtime Library</li>
+          <li class="breadcrumb-item">Runtime Guides</li>
+      <li class="breadcrumb-item active">C++ Runtime</li>
     <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/runtimes/cpp.md">Edit on nwm-ewts</a>
     </li>
   </ul>
   <hr/>
@@ -118,65 +161,134 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="c-runtime-library">C++ Runtime Library<a class="headerlink" href="#c-runtime-library" title="Permanent link">&para;</a></h1>
-<p>The EWTS C++ library provides logging support for C++-based hydrologic
-modules running either within <code>ngen</code> or as standalone applications.</p>
-<h2 id="typical-use">Typical use<a class="headerlink" href="#typical-use" title="Permanent link">&para;</a></h2>
-<p>A module typically binds a module ID and logs through the runtime logger API.
-Under <code>ngen</code>, the integration layer owns final output policy, while the C++
-runtime remains responsible for creating correctly attributed log messages.</p>
-<pre><code class="language-cpp">#ifndef SFT_LOGGER_HPP
-#define SFT_LOGGER_HPP
-
-#include &quot;ewts/module_constants.hpp&quot;
-
-// Provide the constant in the global namespace
-inline constexpr const char* EWTS_ID_SFT = ewts::modules::EWTS_ID_SFT;
-
-// Bind this module's logger identity
-#define EWTS_ID EWTS_ID_SFT
-
-#include &quot;ewts/logger.hpp&quot;
-
-using ewts::EwtsInit;
-using ewts::LogLevel;
-
-#endif /* SFT_LOGGER_HPP */
-</code></pre>
-<pre><code class="language-cpp">void BmiSoilFreezeThaw::
-Initialize (std::string config_file)
-{
-  // Initialize the Error, Warning and Trapping System
-#ifdef EWTS_HAVE_NGEN_BRIDGE    
-  EwtsInit(EWTS_ID_SFT, true);
-#else
-  EwtsInit(EWTS_ID_SFT, false);
-#endif
-  LOG(LogLevel::INFO, &quot;Initializing SFT&quot;);
-
-  if (config_file.compare(&quot;&quot;) != 0 )
-      this-&gt;state = new soilfreezethaw::SoilFreezeThaw(config_file);
-
-    verbosity= this-&gt;state-&gt;verbosity;
-}
-</code></pre>
-<h2 id="shared-runtime-behavior">Shared-runtime behavior<a class="headerlink" href="#shared-runtime-behavior" title="Permanent link">&para;</a></h2>
-<p>The C++ runtime library is designed so multiple modules can run in the same process
-without colliding on logger identity. This is important for <code>ngen</code> execution,
-where more than one module may log within the same runtime context.</p>
-<h2 id="common-log-levels">Common log levels<a class="headerlink" href="#common-log-levels" title="Permanent link">&para;</a></h2>
-<p>The C++ runtime uses the same canonical EWTS log levels as the other language-specific Runtime Libraries.</p>
-<h2 id="developer-reference">Developer reference<a class="headerlink" href="#developer-reference" title="Permanent link">&para;</a></h2>
-<p>For implementation details and repository-local usage, see:</p>
-<ul>
-<li><code>runtime/cpp/README.md</code></li>
-</ul>
+                <h1 id="c-runtime-guide">C++ Runtime Guide<a class="headerlink" href="#c-runtime-guide" title="Permanent link">&para;</a></h1>
+<p>The C++ runtime library is the module-facing EWTS interface for modules written in C++ that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing. It is documented separately from the ngen logger and bridge integration.</p>
+<h2 id="intended-use">Intended use<a class="headerlink" href="#intended-use" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C++ module logging</td>
+<td>Allow C++ modules to emit EWTS diagnostic messages with a module-specific EWTS ID.</td>
+</tr>
+<tr>
+<td>Consistent EWTS levels</td>
+<td>Use the same level semantics as the Python, C, and Fortran runtimes.</td>
+</tr>
+<tr>
+<td>Payload logging</td>
+<td>Allow modules to emit structured payload messages using the documented EWTS payload convention.</td>
+</tr>
+<tr>
+<td>ngen execution</td>
+<td>Route module messages through the EWTS integration path when the module is executed under ngen.</td>
+</tr>
+<tr>
+<td>Standalone execution</td>
+<td>Support module execution outside ngen where logging falls back to configured file output or stdout.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="relationship-to-the-ngen-bridge">Relationship to the ngen bridge<a class="headerlink" href="#relationship-to-the-ngen-bridge" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C++ runtime library</td>
+<td>Module-facing API used by C++ model code.</td>
+</tr>
+<tr>
+<td>EWTS ngen bridge</td>
+<td>Integration layer that forwards EWTS messages into the ngen logging path.</td>
+</tr>
+<tr>
+<td>ngen logger</td>
+<td>ngen-owned logging infrastructure.</td>
+</tr>
+</tbody>
+</table>
+<div class="mermaid">flowchart LR
+    Module["C++ model module"] --&gt; Runtime["EWTS C++ runtime"]
+    Runtime --&gt; Bridge{"Running under ngen?"}
+    Bridge -- Yes --&gt; NgenBridge["EWTS ngen bridge"]
+    NgenBridge --&gt; Ngen["ngen logging path"]
+    Bridge -- No --&gt; Standalone["Standalone file or stdout output"]</div>
+<h2 id="runtime-responsibilities">Runtime responsibilities<a class="headerlink" href="#runtime-responsibilities" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Responsibility</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Level mapping</td>
+<td>Preserve EWTS log-level semantics for C++ module code.</td>
+</tr>
+<tr>
+<td>Module identity</td>
+<td>Include the EWTS ID so messages can be attributed to the correct module.</td>
+</tr>
+<tr>
+<td>Message forwarding</td>
+<td>Pass module messages into the EWTS native logging layer.</td>
+</tr>
+<tr>
+<td>Payload message support</td>
+<td>Allow payload messages to be emitted using the documented <code>&lt;MSG_DATA&gt;</code> wrapper and JSON fields.</td>
+</tr>
+<tr>
+<td>Standalone fallback</td>
+<td>Preserve usable output when the ngen bridge is not active.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="payload-message-guidance">Payload message guidance<a class="headerlink" href="#payload-message-guidance" title="Permanent link">&para;</a></h2>
+<p>C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default or expectation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>Payload execution state such as <code>INITIALIZING</code>, <code>IN_PROGRESS</code>, <code>COMPLETE</code>, or <code>ERROR</code>.</td>
+</tr>
+<tr>
+<td><code>prog</code></td>
+<td>Progress value when available.</td>
+</tr>
+<tr>
+<td><code>msg</code></td>
+<td>Optional human-readable status message. Empty values are allowed.</td>
+</tr>
+<tr>
+<td><code>modnm</code></td>
+<td>Module name or EWTS ID used by downstream consumers.</td>
+</tr>
+</tbody>
+</table>
+<p>Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../c/" class="btn btn-neutral float-left" title="C Runtime Library"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../fortran/" class="btn btn-neutral float-right" title="Fortran Runtime Library">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../c/" class="btn btn-neutral float-left" title="C Runtime"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../fortran/" class="btn btn-neutral float-right" title="Fortran Runtime">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -199,7 +311,7 @@ where more than one module may log within the same runtime context.</p>
   <span class="rst-current-version" data-toggle="rst-current-version">
     
         <span>
-          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> NGWPC/nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
         </span>
     
     
@@ -214,6 +326,8 @@ where more than one module may log within the same runtime context.</p>
     <script>var base_url = "../..";</script>
     <script src="../../js/theme_extra.js"></script>
     <script src="../../js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="../../assets/javascripts/mermaid-init.js"></script>
       <script src="../../search/main.js"></script>
     <script>
         jQuery(function () {

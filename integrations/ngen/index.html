@@ -3,24 +3,31 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ngwpc.github.io/nwm-ewts/integrations/ngen/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>ngen Integration - EWTS Documentation</title>
+    <title>ngen - EWTS Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "ngen Integration";
+        var mkdocs_page_name = "ngen";
         var mkdocs_page_input_path = "integrations/ngen.md";
-        var mkdocs_page_url = "/nwm-ewts/integrations/ngen/";
+        var mkdocs_page_url = null;
       </script>
     
     <!--[if lt IE 9]>
       <script src="../../js/html5shiv.min.js"></script>
     <![endif]-->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
       <script>hljs.highlightAll();</script> 
 </head>
 
@@ -43,63 +50,88 @@
                 <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../design-improvements/">Design Improvements</a>
+                </li>
+              </ul>
               <p class="caption"><span class="caption-text">Getting Started</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../installation/">Installation</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/installation/">Installation and Build</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../contributing/">Contributing</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/configuration/">Configuration</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Architecture</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/logging-model/">Logging Model</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/configuration/">Configuration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/message-flow/">Message Flow</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/generated-constants/">Generated Constants</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/status-payloads/">Payload Logging</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/design-improvements/">Design improvements</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/fortran/">Fortran Runtime</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Integrations</span></p>
               <ul class="current">
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">ngen Integration</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">ngen</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#what-the-integration-does">What the integration does</a>
+    <li class="toctree-l2"><a class="reference internal" href="#integration-responsibilities">Integration responsibilities</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#initialization-behavior">Initialization behavior</a>
+    <li class="toctree-l2"><a class="reference internal" href="#build-flags">Build flags</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#file-layout-modes">File layout modes</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#unified-mode">Unified mode</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#split-by-module-mode">Split-by-module mode</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#runtime-relationship">Runtime relationship</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#developer-reference">Developer reference</a>
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-behavior">Runtime behavior</a>
     </li>
     </ul>
                   </li>
-              </ul>
-              <p class="caption"><span class="caption-text">Language Runtime Libraries</span></p>
-              <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/c/">C Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/cpp/">C++ Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/fortran/">Fortran Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/python/">Python Runtime Package</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../rte/">RTE</a>
                   </li>
               </ul>
-              <p class="caption"><span class="caption-text">Tools</span></p>
+              <p class="caption"><span class="caption-text">Operations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../tools/generate-language-constants/">Language Constants Generator</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/docker/">Docker and Container Builds</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/validation/">Validation Checklist</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/release-notes-v2/">Version 2.0 Release Notes</a>
                   </li>
               </ul>
       </div>
@@ -117,8 +149,9 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
           <li class="breadcrumb-item">Integrations</li>
-      <li class="breadcrumb-item active">ngen Integration</li>
+      <li class="breadcrumb-item active">ngen</li>
     <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/integrations/ngen.md">Edit on nwm-ewts</a>
     </li>
   </ul>
   <hr/>
@@ -127,53 +160,86 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="ngen-integration">ngen Integration<a class="headerlink" href="#ngen-integration" title="Permanent link">&para;</a></h1>
-<p>The EWTS <code>ngen</code> integration routes log messages from all supported language-specific Runtime Libraries
-through a shared logger implementation used by <code>ngen</code> runs.</p>
-<h2 id="what-the-integration-does">What the integration does<a class="headerlink" href="#what-the-integration-does" title="Permanent link">&para;</a></h2>
-<p>When active, the integration layer is responsible for:</p>
-<ul>
-<li>detecting the <code>ngen</code> results environment</li>
-<li>reading <code>ngen_logging.json</code></li>
-<li>determining effective log levels</li>
-<li>applying consistent log formatting</li>
-<li>writing output into <code>NGEN_RESULTS_DIR/logs/</code></li>
-<li>preserving per-rank file separation for MPI runs</li>
-</ul>
-<h2 id="initialization-behavior">Initialization behavior<a class="headerlink" href="#initialization-behavior" title="Permanent link">&para;</a></h2>
-<p>The integration logger is initialized lazily on the first log call. Modules do
-not need to call a separate initialization routine in <code>ngen</code> itself.</p>
-<h2 id="file-layout-modes">File layout modes<a class="headerlink" href="#file-layout-modes" title="Permanent link">&para;</a></h2>
-<p>EWTS supports two file layout modes under <code>ngen</code>.</p>
-<h3 id="unified-mode">Unified mode<a class="headerlink" href="#unified-mode" title="Permanent link">&para;</a></h3>
-<p>Each rank writes to a single file:</p>
-<pre><code class="language-text">logs/ngen_rank_0.log
-</code></pre>
-<h3 id="split-by-module-mode">Split-by-module mode<a class="headerlink" href="#split-by-module-mode" title="Permanent link">&para;</a></h3>
-<p>Each rank writes separate files by module:</p>
-<pre><code class="language-text">logs/cfe_rank_0.log
-logs/ngen_rank_0.log
-logs/noahowp_rank_0.log
-logs/smp_rank_0.log
-</code></pre>
-<p>Enable split mode in <code>ngen_logging.json</code>:</p>
-<pre><code class="language-json">{
-  &quot;split_logs_by_module&quot;: true
-}
-</code></pre>
-<h2 id="runtime-relationship">Runtime relationship<a class="headerlink" href="#runtime-relationship" title="Permanent link">&para;</a></h2>
-<p>The Runtime Libraries remain responsible for creating and forwarding log
-messages, but under <code>ngen</code> they do not own the final output policy.</p>
-<h2 id="developer-reference">Developer reference<a class="headerlink" href="#developer-reference" title="Permanent link">&para;</a></h2>
-<p>For implementation details in this repository, see:</p>
-<ul>
-<li><code>integrations/ngen/README.md</code></li>
-</ul>
+<p>The ngen integration connects EWTS-enabled model modules to the ngen logging path. Module code uses the appropriate EWTS runtime library for its language. The EWTS ngen bridge is the integration layer that forwards those messages into ngen when EWTS support is enabled in an ngen build.</p>
+<h2 id="integration-responsibilities">Integration responsibilities<a class="headerlink" href="#integration-responsibilities" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EWTS runtime libraries</td>
+<td>Provide module-facing logging APIs for Python, C, C++, and Fortran module code.</td>
+</tr>
+<tr>
+<td><code>ewts_ngen_bridge</code></td>
+<td>Forward EWTS ID, level, and message text into the ngen logging path.</td>
+</tr>
+<tr>
+<td>ngen logging path</td>
+<td>Handle ngen-side formatting, routing, and log-file behavior.</td>
+</tr>
+<tr>
+<td>RTE</td>
+<td>Collect ngen logs and consume payload messages for progress and execution state.</td>
+</tr>
+</tbody>
+</table>
+<div class="mermaid">flowchart LR
+    Module["Model module"] --&gt; Runtime["Language-specific EWTS runtime"]
+    Runtime --&gt; Bridge["ewts_ngen_bridge"]
+    Bridge --&gt; Ngen["ngen logging path"]
+    Ngen --&gt; Logs[Standard and Payload Logs]
+    Logs --&gt; ngenCERF["ngenCERF"]
+    Logs --&gt; RTE["RTE"]</div>
+<h2 id="build-flags">Build flags<a class="headerlink" href="#build-flags" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Typical value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USE_EWTS</code></td>
+<td><code>ON</code> or <code>OFF</code></td>
+<td>Enables or excludes EWTS support in ngen builds.</td>
+</tr>
+<tr>
+<td><code>EWTS_WITH_NGEN</code></td>
+<td><code>ON</code></td>
+<td>Builds EWTS with ngen bridge support.</td>
+</tr>
+<tr>
+<td><code>EWTS_BUILD_SHARED</code></td>
+<td><code>ON</code></td>
+<td>Builds shared libraries for runtime loading.</td>
+</tr>
+<tr>
+<td><code>EWTS_REF</code></td>
+<td>Branch, tag, or commit</td>
+<td>Selects the EWTS source version.</td>
+</tr>
+<tr>
+<td><code>EWTS_PREFIX</code></td>
+<td><code>/opt/ewts</code></td>
+<td>Installation prefix for headers, libraries, and Python artifacts.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="runtime-behavior">Runtime behavior<a class="headerlink" href="#runtime-behavior" title="Permanent link">&para;</a></h2>
+<p>When EWTS support is enabled and the bridge is available, EWTS runtime calls from modules are routed into the ngen logging path. When the bridge is not active, the runtimes support standalone behavior through configured file output or stdout fallback.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../../architecture/design-improvements/" class="btn btn-neutral float-left" title="Design improvements"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../runtimes/c/" class="btn btn-neutral float-right" title="C Runtime Library">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../runtimes/fortran/" class="btn btn-neutral float-left" title="Fortran Runtime"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../rte/" class="btn btn-neutral float-right" title="RTE">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -196,14 +262,14 @@ messages, but under <code>ngen</code> they do not own the final output policy.</
   <span class="rst-current-version" data-toggle="rst-current-version">
     
         <span>
-          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> NGWPC/nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
         </span>
     
     
-      <span><a href="../../architecture/design-improvements/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../../runtimes/fortran/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../runtimes/c/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../rte/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
@@ -211,6 +277,8 @@ messages, but under <code>ngen</code> they do not own the final output policy.</
     <script>var base_url = "../..";</script>
     <script src="../../js/theme_extra.js"></script>
     <script src="../../js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="../../assets/javascripts/mermaid-init.js"></script>
       <script src="../../search/main.js"></script>
     <script>
         jQuery(function () {

@@ -3,24 +3,31 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ngwpc.github.io/nwm-ewts/runtimes/python/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Python Runtime Package - EWTS Documentation</title>
+    <title>Python Runtime - EWTS Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Python Runtime Package";
+        var mkdocs_page_name = "Python Runtime";
         var mkdocs_page_input_path = "runtimes/python.md";
-        var mkdocs_page_url = "/nwm-ewts/runtimes/python/";
+        var mkdocs_page_url = null;
       </script>
     
     <!--[if lt IE 9]>
       <script src="../../js/html5shiv.min.js"></script>
     <![endif]-->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
       <script>hljs.highlightAll();</script> 
 </head>
 
@@ -43,55 +50,98 @@
                 <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../design-improvements/">Design Improvements</a>
+                </li>
+              </ul>
               <p class="caption"><span class="caption-text">Getting Started</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../installation/">Installation</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/installation/">Installation and Build</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../contributing/">Contributing</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/configuration/">Configuration</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Architecture</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/logging-model/">Logging Model</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/configuration/">Configuration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/message-flow/">Message Flow</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/generated-constants/">Generated Constants</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/status-payloads/">Payload Logging</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/design-improvements/">Design improvements</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Python Runtime</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#intended-use">Intended use</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#public-entry-points">Public entry points</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#relationship-to-the-ngen-bridge">Relationship to the ngen bridge</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-responsibilities">Runtime responsibilities</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#payload-message-guidance">Payload message guidance</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#when-to-use-setup_logger">When to use setup_logger()</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#when-to-use-configure_existing_logger">When to use configure_existing_logger()</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#version-2-note-lazy-binding-removed">Version 2 Note: lazy binding removed</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../fortran/">Fortran Runtime</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Integrations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/ngen/">ngen Integration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/ngen/">ngen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/rte/">RTE</a>
                   </li>
               </ul>
-              <p class="caption"><span class="caption-text">Language Runtime Libraries</span></p>
-              <ul class="current">
-                  <li class="toctree-l1"><a class="reference internal" href="../c/">C Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../cpp/">C++ Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../fortran/">Fortran Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Python Runtime Package</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#package-location">Package location</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#typical-use">Typical use</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#runtime-behavior">Runtime behavior</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#developer-reference">Developer reference</a>
-    </li>
-    </ul>
-                  </li>
-              </ul>
-              <p class="caption"><span class="caption-text">Tools</span></p>
+              <p class="caption"><span class="caption-text">Operations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../tools/generate-language-constants/">Language Constants Generator</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/docker/">Docker and Container Builds</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/validation/">Validation Checklist</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/release-notes-v2/">Version 2.0 Release Notes</a>
                   </li>
               </ul>
       </div>
@@ -108,9 +158,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-          <li class="breadcrumb-item">Language Runtime Libraries</li>
-      <li class="breadcrumb-item active">Python Runtime Package</li>
+          <li class="breadcrumb-item">Runtime Guides</li>
+      <li class="breadcrumb-item active">Python Runtime</li>
     <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/runtimes/python.md">Edit on nwm-ewts</a>
     </li>
   </ul>
   <hr/>
@@ -118,38 +169,159 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="python-runtime-package">Python Runtime Package<a class="headerlink" href="#python-runtime-package" title="Permanent link">&para;</a></h1>
-<p>The EWTS Python runtime package provides logging support for Python-based hydrologic
-modules running either within <code>ngen</code> or as standalone applications.</p>
-<h2 id="package-location">Package location<a class="headerlink" href="#package-location" title="Permanent link">&para;</a></h2>
-<p>The package source lives under:</p>
-<pre><code class="language-text">runtime/python/ewts/src/ewts
-</code></pre>
-<p>and is imported as:</p>
-<pre><code class="language-python">import ewts
-</code></pre>
-<h2 id="typical-use">Typical use<a class="headerlink" href="#typical-use" title="Permanent link">&para;</a></h2>
-<pre><code class="language-python">import ewts
-
-LOG = ewts.get_logger(ewts.FORCING_ID)
-LOG.bind()
-LOG.info(&quot;Initializing forcing workflow&quot;)
-</code></pre>
-<h2 id="runtime-behavior">Runtime behavior<a class="headerlink" href="#runtime-behavior" title="Permanent link">&para;</a></h2>
-<p>The Python package mirrors the same general EWTS behavior used by the native
-language-specific Runtime Libraries, including canonical log levels and support 
-for <code>ngen</code> integration when that environment is active.</p>
-<h2 id="developer-reference">Developer reference<a class="headerlink" href="#developer-reference" title="Permanent link">&para;</a></h2>
-<p>For packaging details, lazy binding, testing, and integration notes, see:</p>
-<ul>
-<li><code>runtime/python/README.md</code></li>
-</ul>
+                <h1 id="python-runtime-guide">Python Runtime Guide<a class="headerlink" href="#python-runtime-guide" title="Permanent link">&para;</a></h1>
+<p>The Python runtime provides an idiomatic logger wrapper that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing.</p>
+<h2 id="intended-use">Intended use<a class="headerlink" href="#intended-use" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python module logging</td>
+<td>Allow Python modules to emit EWTS diagnostic messages with a module-specific EWTS ID.</td>
+</tr>
+<tr>
+<td>Consistent EWTS levels</td>
+<td>Use the same level semantics as the Python, C, and Fortran runtimes.</td>
+</tr>
+<tr>
+<td>Payload logging</td>
+<td>Allow modules to emit structured payload messages using the documented EWTS payload convention.</td>
+</tr>
+<tr>
+<td>ngen execution</td>
+<td>Route module messages through the EWTS integration path when the module is executed under ngen.</td>
+</tr>
+<tr>
+<td>Standalone execution</td>
+<td>Support module execution outside ngen where logging falls back to configured file output or stdout.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="public-entry-points">Public entry points<a class="headerlink" href="#public-entry-points" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>setup_logger()</code></td>
+<td>Create and configure an EWTS logger for an EWTS ID. Used by components.</td>
+</tr>
+<tr>
+<td><code>configure_existing_logger()</code></td>
+<td>Adopt a pre-created Python logger and apply EWTS configuration. Used by BMI modules</td>
+</tr>
+</tbody>
+</table>
+<h2 id="relationship-to-the-ngen-bridge">Relationship to the ngen bridge<a class="headerlink" href="#relationship-to-the-ngen-bridge" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python Package</td>
+<td>Module-facing API used by Ptyhon modules. Imports <code>ctypes</code> to call the ewts bridge log method.</td>
+</tr>
+<tr>
+<td>EWTS ngen bridge</td>
+<td>Integration layer that forwards EWTS messages into the ngen logging path.</td>
+</tr>
+<tr>
+<td>ngen logger</td>
+<td>ngen-owned logging infrastructure.</td>
+</tr>
+</tbody>
+</table>
+<div class="mermaid">flowchart LR
+    Module["Python module"] --&gt; Runtime["EWTS Python runtime"]
+    Runtime --&gt; Bridge{"Running under ngen?"}
+    Bridge -- Yes --&gt; NgenBridge["EWTS ngen bridge"]
+    NgenBridge --&gt; Ngen["ngen logging path"]
+    Bridge -- No --&gt; Standalone["Standalone file or stdout output"]</div>
+<h2 id="runtime-responsibilities">Runtime responsibilities<a class="headerlink" href="#runtime-responsibilities" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Responsibility</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Level mapping</td>
+<td>Preserve EWTS log-level semantics for C++ module code.</td>
+</tr>
+<tr>
+<td>Module identity</td>
+<td>Include the EWTS ID so messages can be attributed to the correct module.</td>
+</tr>
+<tr>
+<td>Message forwarding</td>
+<td>Pass module messages into the EWTS native logging layer.</td>
+</tr>
+<tr>
+<td>Payload message support</td>
+<td>Allow payload messages to be emitted using the documented <code>&lt;MSG_DATA&gt;</code> wrapper and JSON fields.</td>
+</tr>
+<tr>
+<td>Standalone fallback</td>
+<td>Preserve usable output when the ngen bridge is not active.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="payload-message-guidance">Payload message guidance<a class="headerlink" href="#payload-message-guidance" title="Permanent link">&para;</a></h2>
+<p>C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default or expectation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>Payload execution state such as <code>INITIALIZING</code>, <code>IN_PROGRESS</code>, <code>COMPLETE</code>, or <code>ERROR</code>.</td>
+</tr>
+<tr>
+<td><code>prog</code></td>
+<td>Progress value when available.</td>
+</tr>
+<tr>
+<td><code>msg</code></td>
+<td>Optional human-readable status message. Empty values are allowed.</td>
+</tr>
+<tr>
+<td><code>modnm</code></td>
+<td>Module name or EWTS ID used by downstream consumers.</td>
+</tr>
+</tbody>
+</table>
+<p>Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.</p>
+<h2 id="when-to-use-setup_logger">When to use <code>setup_logger()</code><a class="headerlink" href="#when-to-use-setup_logger" title="Permanent link">&para;</a></h2>
+<p>Use <code>setup_logger()</code> when your component needs to create and configure its own EWTS logger. This is the typical entry point for components that are not executed as ngen modules.</p>
+<h2 id="when-to-use-configure_existing_logger">When to use <code>configure_existing_logger()</code><a class="headerlink" href="#when-to-use-configure_existing_logger" title="Permanent link">&para;</a></h2>
+<p>Use <code>configure_existing_logger()</code> when a module already creates a Python <code>logging.Logger</code>, and replacing it would break existing code or third-party behavior.</p>
+<h2 id="version-2-note-lazy-binding-removed">Version 2 Note: lazy binding removed<a class="headerlink" href="#version-2-note-lazy-binding-removed" title="Permanent link">&para;</a></h2>
+<p>The current runtime removed older lazy-binding behavior. Images should not contain <code>bind_logger</code>, <code>is_bound</code>, or <code>get_bound_logger</code> symbols from the old implementation.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../fortran/" class="btn btn-neutral float-left" title="Fortran Runtime Library"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../tools/generate-language-constants/" class="btn btn-neutral float-right" title="Language Constants Generator">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../architecture/module-identity/" class="btn btn-neutral float-left" title="Module Identity and Log Splitting"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../c/" class="btn btn-neutral float-right" title="C Runtime">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -172,14 +344,14 @@ for <code>ngen</code> integration when that environment is active.</p>
   <span class="rst-current-version" data-toggle="rst-current-version">
     
         <span>
-          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> NGWPC/nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
         </span>
     
     
-      <span><a href="../fortran/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../../architecture/module-identity/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../tools/generate-language-constants/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../c/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
@@ -187,6 +359,8 @@ for <code>ngen</code> integration when that environment is active.</p>
     <script>var base_url = "../..";</script>
     <script src="../../js/theme_extra.js"></script>
     <script src="../../js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="../../assets/javascripts/mermaid-init.js"></script>
       <script src="../../search/main.js"></script>
     <script>
         jQuery(function () {

@@ -5,15 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>C Runtime - EWTS Documentation</title>
+    <title>Message Flow - EWTS Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "C Runtime";
-        var mkdocs_page_input_path = "runtimes/c.md";
+        var mkdocs_page_name = "Message Flow";
+        var mkdocs_page_input_path = "architecture/message-flow.md";
         var mkdocs_page_url = null;
       </script>
     
@@ -68,35 +68,33 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Architecture</span></p>
-              <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/message-flow/">Message Flow</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/status-payloads/">Payload Logging</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/module-identity/">Module Identity and Log Splitting</a>
-                  </li>
-              </ul>
-              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
               <ul class="current">
-                  <li class="toctree-l1"><a class="reference internal" href="../python/">Python Runtime</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">C Runtime</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Message Flow</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#intended-use">Intended use</a>
+    <li class="toctree-l2"><a class="reference internal" href="#standard-log-flow">Standard log flow</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#relationship-to-the-ngen-bridge">Relationship to the ngen bridge</a>
+    <li class="toctree-l2"><a class="reference internal" href="#payload-log-flow">Payload log flow</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#runtime-responsibilities">Runtime responsibilities</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#payload-message-guidance">Payload message guidance</a>
+    <li class="toctree-l2"><a class="reference internal" href="#filtering">Filtering</a>
     </li>
     </ul>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../cpp/">C++ Runtime</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../status-payloads/">Payload Logging</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../fortran/">Fortran Runtime</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/fortran/">Fortran Runtime</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Integrations</span></p>
@@ -150,10 +148,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-          <li class="breadcrumb-item">Runtime Guides</li>
-      <li class="breadcrumb-item active">C Runtime</li>
+          <li class="breadcrumb-item">Architecture</li>
+      <li class="breadcrumb-item active">Message Flow</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/runtimes/c.md">Edit on nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/architecture/message-flow.md">Edit on nwm-ewts</a>
     </li>
   </ul>
   <hr/>
@@ -161,134 +159,77 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="c-runtime-guide">C Runtime Guide<a class="headerlink" href="#c-runtime-guide" title="Permanent link">&para;</a></h1>
-<p>The C runtime library is the module-facing EWTS interface for modules written in Python that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing.</p>
-<h2 id="intended-use">Intended use<a class="headerlink" href="#intended-use" title="Permanent link">&para;</a></h2>
+                <h1 id="message-flow">Message Flow<a class="headerlink" href="#message-flow" title="Permanent link">&para;</a></h1>
+<h2 id="standard-log-flow">Standard log flow<a class="headerlink" href="#standard-log-flow" title="Permanent link">&para;</a></h2>
+<div class="mermaid">sequenceDiagram
+    participant M as Module code
+    participant E as EWTS runtime
+    participant B as ngen bridge
+    participant O as Output
+    M-&gt;&gt;E: log(level, message) ewts id added in wrapper
+    alt bridge enabled
+        E-&gt;&gt;B: ewts_ngen_log(ewts_id, level, message)
+        B-&gt;&gt;O: ngen log stream
+    else standalone file configured
+        E-&gt;&gt;O: append formatted line to log file
+    else stdout fallback
+        E-&gt;&gt;O: print formatted line to stdout
+    end</div>
+<h2 id="payload-log-flow">Payload log flow<a class="headerlink" href="#payload-log-flow" title="Permanent link">&para;</a></h2>
+<div class="mermaid">sequenceDiagram
+    participant M as Module code
+    participant E as EWTS runtime
+    participant B as ngen bridge
+    participant R as RTE
+    M-&gt;&gt;E: status(&lt;MSG_DATA&gt;{json}&lt;/MSG_DATA&gt;)
+    E-&gt;&gt;E: force logging regardless of min level
+    E-&gt;&gt;B: forward payload message
+    B-&gt;&gt;R: expose payload status/progress</div>
+<h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Use case</th>
-<th>Description</th>
+<th>Level type</th>
+<th>Filtered by minimum level?</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>C module logging</td>
-<td>Allow C modules to emit EWTS diagnostic messages with a module-specific EWTS ID.</td>
+<td>DEBUG</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>Consistent EWTS levels</td>
-<td>Use the same level semantics as the Python, C, and Fortran runtimes.</td>
+<td>PERFORM</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>Payload logging</td>
-<td>Allow modules to emit structured payload messages using the documented EWTS payload convention.</td>
+<td>INFO</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>ngen execution</td>
-<td>Route module messages through the EWTS integration path when the module is executed under ngen.</td>
+<td>WARNING</td>
+<td>Yes</td>
 </tr>
 <tr>
-<td>Standalone execution</td>
-<td>Support module execution outside ngen where logging falls back to configured file output or stdout.</td>
+<td>SEVERE</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>FATAL</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>STATUS</td>
+<td>No</td>
 </tr>
 </tbody>
 </table>
-<h2 id="relationship-to-the-ngen-bridge">Relationship to the ngen bridge<a class="headerlink" href="#relationship-to-the-ngen-bridge" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Role</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>C runtime library</td>
-<td>Module-facing API used by C model code.</td>
-</tr>
-<tr>
-<td>EWTS ngen bridge</td>
-<td>Integration layer that forwards EWTS messages into the ngen logging path.</td>
-</tr>
-<tr>
-<td>ngen logger</td>
-<td>ngen-owned logging infrastructure.</td>
-</tr>
-</tbody>
-</table>
-<div class="mermaid">flowchart LR
-    Module["C model module"] --&gt; Runtime["EWTS C runtime"]
-    Runtime --&gt; Bridge{"Running under ngen?"}
-    Bridge -- Yes --&gt; NgenBridge["EWTS ngen bridge"]
-    NgenBridge --&gt; Ngen["ngen logging path"]
-    Bridge -- No --&gt; Standalone["Standalone file or stdout output"]</div>
-<h2 id="runtime-responsibilities">Runtime responsibilities<a class="headerlink" href="#runtime-responsibilities" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Responsibility</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Level mapping</td>
-<td>Preserve EWTS log-level semantics for C module code.</td>
-</tr>
-<tr>
-<td>Module identity</td>
-<td>Include the EWTS ID so messages can be attributed to the correct module.</td>
-</tr>
-<tr>
-<td>Message forwarding</td>
-<td>Pass module messages into the EWTS native logging layer.</td>
-</tr>
-<tr>
-<td>Payload message support</td>
-<td>Allow payload messages to be emitted using the documented <code>&lt;MSG_DATA&gt;</code> wrapper and JSON fields.</td>
-</tr>
-<tr>
-<td>Standalone fallback</td>
-<td>Preserve usable output when the ngen bridge is not active.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="payload-message-guidance">Payload message guidance<a class="headerlink" href="#payload-message-guidance" title="Permanent link">&para;</a></h2>
-<p>C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Default or expectation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>status</code></td>
-<td>Payload execution state such as <code>INITIALIZING</code>, <code>IN_PROGRESS</code>, <code>COMPLETE</code>, or <code>ERROR</code>.</td>
-</tr>
-<tr>
-<td><code>prog</code></td>
-<td>Progress value when available.</td>
-</tr>
-<tr>
-<td><code>msg</code></td>
-<td>Optional human-readable status message. Empty values are allowed.</td>
-</tr>
-<tr>
-<td><code>modnm</code></td>
-<td>Module name or EWTS ID used by downstream consumers.</td>
-</tr>
-</tbody>
-</table>
-<p>Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../python/" class="btn btn-neutral float-left" title="Python Runtime"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../cpp/" class="btn btn-neutral float-right" title="C++ Runtime">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../overview/" class="btn btn-neutral float-left" title="Overview"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../status-payloads/" class="btn btn-neutral float-right" title="Payload Logging">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -315,10 +256,10 @@
         </span>
     
     
-      <span><a href="../python/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../overview/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../cpp/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../status-payloads/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

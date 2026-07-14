@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Design Improvements - EWTS Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Design Improvements";
+        var mkdocs_page_input_path = "design-improvements.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> EWTS Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Design Improvements</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#safe-and-configurable-file-handling">Safe and Configurable File Handling</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#thread-safe-and-process-safe-design">Thread-Safe and Process-Safe Design</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#reliable-string-handling">Reliable String Handling</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#mpi-aware-logging">MPI-Aware Logging</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#consistent-and-robust-python-integration">Consistent and Robust Python Integration</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#centralized-and-reusable-logging-behavior">Centralized and Reusable Logging Behavior</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#summary-of-improvements">Summary of improvements</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#verification-model">Verification model</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../getting-started/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../getting-started/installation/">Installation and Build</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../getting-started/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/message-flow/">Message Flow</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/status-payloads/">Payload Logging</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../architecture/module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../runtimes/fortran/">Fortran Runtime</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Integrations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../integrations/ngen/">ngen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../integrations/rte/">RTE</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/docker/">Docker and Container Builds</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/validation/">Validation Checklist</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operations/troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../appendices/release-notes-v2/">Version 2.0 Release Notes</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">EWTS Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Design Improvements</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/design-improvements.md">Edit on nwm-ewts</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="design-improvements">Design Improvements<a class="headerlink" href="#design-improvements" title="Permanent link">&para;</a></h1>
+<p>The EWTS was redesigned to address limitations identified in earlier logging implementations, particularly in multi-language and parallel execution environments. This section has been retained from Version 1.0 to document the architectural decisions that addressed those limitations and to preserve the rationale behind the current implementation.</p>
+<h3 id="safe-and-configurable-file-handling">Safe and Configurable File Handling<a class="headerlink" href="#safe-and-configurable-file-handling" title="Permanent link">&para;</a></h3>
+<p>Logging output is no longer tied to a single hardcoded path. Instead, EWTS
+selects log locations based on the execution environment. When running under
+<code>ngen</code>, log output is routed using integration-aware locations such as the
+<code>ngen</code> results directory, currently defined by an enviroment variable. In 
+standalone mode, EWTS also uses an enviroment variable when set, otherwise
+falls back to stdout. This provides safer and more portable behavior across s
+tandalone, scheduled, and integrated execution environments.</p>
+<h3 id="thread-safe-and-process-safe-design">Thread-Safe and Process-Safe Design<a class="headerlink" href="#thread-safe-and-process-safe-design" title="Permanent link">&para;</a></h3>
+<p>Previous implementations relied on global, unguarded buffers and shared state.
+EWTS eliminates these patterns by:</p>
+<ul>
+<li>avoiding global mutable buffers</li>
+<li>using well-defined, scoped logging interfaces</li>
+<li>ensuring safe behavior across threads and processes</li>
+</ul>
+<p>This prevents segmentation faults and undefined behavior caused by unsafe memory usage.</p>
+<h3 id="reliable-string-handling">Reliable String Handling<a class="headerlink" href="#reliable-string-handling" title="Permanent link">&para;</a></h3>
+<p>String construction and formatting are handled safely within each language-specific
+Runtime Library, avoiding unsafe concatenation patterns and shared string state.
+This ensures consistent and stable log message construction across all supported
+languages.</p>
+<h3 id="mpi-aware-logging">MPI-Aware Logging<a class="headerlink" href="#mpi-aware-logging" title="Permanent link">&para;</a></h3>
+<p>EWTS is designed for parallel execution:</p>
+<ul>
+<li>each MPI rank writes to its own log file</li>
+<li>shared file writes are avoided</li>
+<li>log output remains deterministic and non-interleaved</li>
+</ul>
+<p>This eliminates file I/O collisions and issues observed on distributed file systems
+such as Lustre.</p>
+<h3 id="consistent-and-robust-python-integration">Consistent and Robust Python Integration<a class="headerlink" href="#consistent-and-robust-python-integration" title="Permanent link">&para;</a></h3>
+<p>The Python Runtime Library uses standard logging patterns and avoids overriding
+core logging configuration in unsafe ways. Logging handlers are properly
+initialized and attached, and file handling is managed to prevent descriptor leaks
+and runtime errors.</p>
+<h3 id="centralized-and-reusable-logging-behavior">Centralized and Reusable Logging Behavior<a class="headerlink" href="#centralized-and-reusable-logging-behavior" title="Permanent link">&para;</a></h3>
+<p>Logging functionality is implemented once within the Runtime Libraries and reused
+across modules and workflow components. This:</p>
+<ul>
+<li>eliminates duplicated logging implementations</li>
+<li>ensures consistent behavior across languages</li>
+<li>simplifies maintenance and future enhancements</li>
+</ul>
+<h2 id="summary-of-improvements">Summary of improvements<a class="headerlink" href="#summary-of-improvements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Current design response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MPI operation could mix or lose context</td>
+<td>EWTS messages include module identity and are routed through the same runtime/bridge path used by the executing process.</td>
+</tr>
+<tr>
+<td>Logs needed to be split or attributed by module</td>
+<td>EWTS IDs are explicit and language integrations expose module-scoped constants.</td>
+</tr>
+<tr>
+<td>RTE needed structured status visibility</td>
+<td>STATUS level messages carry JSON payloads wrapped in <code>&lt;MSG_DATA&gt;</code> for RTE parsing.</td>
+</tr>
+<tr>
+<td>Standalone execution needed to remain usable</td>
+<td>Runtimes write to configured files or stdout when not using the ngen bridge.</td>
+</tr>
+<tr>
+<td>Python logger lazy binding caused stale behavior</td>
+<td>Current Python runtime configures loggers immediately through <code>setup_logger()</code> or adopts existing loggers with <code>configure_existing_logger()</code>.</td>
+</tr>
+<tr>
+<td>Multi-language models needed consistent semantics</td>
+<td>C, C++, Python, and Fortran integrations share level and payload status conventions.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p>Together, these improvements provide a robust, scalable, and maintainable logging
+framework suitable for both standalone execution and complex, distributed workflows.</p>
+<div class="mermaid">flowchart LR
+    subgraph Modules
+        P1[Python module]
+        P2[C module]
+        P3[C++ module]
+        P4[Fortran module]
+    end
+    subgraph EWTS
+        L[Common levels and EWTS IDs]
+        S[Payload convention]
+        B[ngen bridge]
+        N[ngen]
+        Logs[Logs]
+    end
+    P1 --&gt; L
+    P2 --&gt; L
+    P3 --&gt; L
+    P4 --&gt; L
+    P1 --&gt; S
+    P2 --&gt; S
+    P3 --&gt; S
+    P4 --&gt; S
+    L --&gt; B
+    S --&gt; B
+    B --&gt; N
+    N --&gt; Logs
+    Logs --&gt; R[RTE]</div>
+<h2 id="verification-model">Verification model<a class="headerlink" href="#verification-model" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Verification mode</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inspect documentation</td>
+<td>Architecture, runtime guides, and operations docs describe MPI-safe routing, module IDs, and bridge behavior.</td>
+</tr>
+<tr>
+<td>Inspect code</td>
+<td>Constants, logger setup, payload parsing, and bridge calls show how status and diagnostic messages are handled.</td>
+</tr>
+<tr>
+<td>Demonstrate in ngenCERF</td>
+<td>Standard, Payload, and stdout logs can be observed in the ngenCERF app during and after an ngen run.</td>
+</tr>
+<tr>
+<td>Demonstrate in RTE</td>
+<td>Payload and diagnostic output can be observed in the RTE logging pipeline during an ngen execution.</td>
+</tr>
+</tbody>
+</table>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../concepts/" class="btn btn-neutral float-left" title="Concepts"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../getting-started/overview/" class="btn btn-neutral float-right" title="Overview">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
+        </span>
+    
+    
+      <span><a href="../concepts/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../getting-started/overview/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="../assets/javascripts/mermaid-init.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

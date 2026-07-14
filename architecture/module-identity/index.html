@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Module Identity and Log Splitting - EWTS Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Module Identity and Log Splitting";
+        var mkdocs_page_input_path = "architecture/module-identity.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> EWTS Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../design-improvements/">Design Improvements</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/installation/">Installation and Build</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../getting-started/configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../message-flow/">Message Flow</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../status-payloads/">Payload Logging</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Module Identity and Log Splitting</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-and-integration-identity">Runtime and integration identity</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#standard-log-routing">Standard log routing</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#default-ngen-log-layout">Default ngen log layout</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#split-logs-by-module">Split logs by module</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#fortran-visibility-pattern">Fortran visibility pattern</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#practical-guidance">Practical guidance</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/fortran/">Fortran Runtime</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Integrations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/ngen/">ngen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/rte/">RTE</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/docker/">Docker and Container Builds</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/validation/">Validation Checklist</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/release-notes-v2/">Version 2.0 Release Notes</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">EWTS Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Architecture</li>
+      <li class="breadcrumb-item active">Module Identity and Log Splitting</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/architecture/module-identity.md">Edit on nwm-ewts</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="module-identity-and-log-splitting">Module Identity and Log Splitting<a class="headerlink" href="#module-identity-and-log-splitting" title="Permanent link">&para;</a></h1>
+<p>EWTS uses an <strong>EWTS ID</strong> to uniquely identify the module instance producing a log message during an <code>ngen</code> run. Examples include <code>CFE</code>, <code>TROUTE</code>, <code>SAC_SMA</code>, <code>SNOW17</code>, and <code>NOAHOWP</code>.</p>
+<p>When a module writes through the EWTS bridge logger, the bridge passes the EWTS ID, log level, and message text to the <code>ngen</code> logger. The <code>ngen</code> logger formats the final log entry with a timestamp, EWTS ID, log level, and message, then writes it to the correct log file for the current MPI rank.</p>
+<p>File placement is controlled by the <code>ngen</code> logging configuration and by whether the message is a standard log message or a payload status message.</p>
+<h2 id="runtime-and-integration-identity">Runtime and integration identity<a class="headerlink" href="#runtime-and-integration-identity" title="Permanent link">&para;</a></h2>
+<p>The EWTS language runtime libraries, the <code>ngen</code> integration code, and the <code>ngen</code> bridge library are related but separate pieces of the logging path.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+<th>Uses EWTS ID for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EWTS language runtime libraries</td>
+<td>Provide Python, C, C++, and Fortran APIs used by module code.</td>
+<td>Supplying the module-specific EWTS ID at the log call site or through a module wrapper.</td>
+</tr>
+<tr>
+<td><code>ngen</code> bridge library</td>
+<td>Provides bridge methods used when modules are running under <code>ngen</code>.</td>
+<td>Passing the caller's EWTS ID, log level, and message text into the <code>ngen</code> logger.</td>
+</tr>
+<tr>
+<td><code>ngen</code> integration</td>
+<td>Connects EWTS bridge logging to <code>ngen</code> logging configuration and output files.</td>
+<td>Routing standard log messages to either unified rank logs or module-named rank logs.</td>
+</tr>
+<tr>
+<td><code>ngen</code> logger</td>
+<td>Formats and writes the final log record.</td>
+<td>Including the EWTS ID in the formatted log entry and using it for split-by-module output selection.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="standard-log-routing">Standard log routing<a class="headerlink" href="#standard-log-routing" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Message type</th>
+<th>Default behavior</th>
+<th>With split logs by module</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard log messages</td>
+<td>One unified standard log file per rank.</td>
+<td>Per-rank, module-named standard log files selected by EWTS ID.</td>
+</tr>
+<tr>
+<td>Payload log messages</td>
+<td>One unified payload log file per rank.</td>
+<td>Not split by module.</td>
+</tr>
+</tbody>
+</table>
+<p>The following diagram shows the standard log-message flow for one or more MPI ranks. The same routing decision is made independently by every MPI rank in the run.</p>
+<div class="mermaid">flowchart TB
+    Module[Module running under ngen]
+    Call[EWTS runtime or module wrapper&lt;br/&gt;supplies EWTS ID, log level, and message]
+    Bridge[EWTS ngen bridge methods&lt;br/&gt;passes EWTS ID, level, and message to ngen]
+    Format[ngen logger&lt;br/&gt;formats log entry&lt;br/&gt;timestamp + EWTS ID + level + message]
+    Entry{Standard log entry? }
+    Config{ngen&lt;br/&gt;logging configuration&lt;br/&gt;split logs by module?}
+
+    Payload[Payload log&lt;hr&gt;ngen_payload_mpi_process_0.log&lt;br/&gt;ngen_payload_mpi_process_1.log, etc.]
+
+    Unified[Unified standard rank log&lt;hr&gt;ngen_mpi_process_0.log&lt;br/&gt;ngen_mpi_process_1.log, etc.]
+    Split[Module standard rank log&lt;hr&gt;ngen_mpi_prococess_0.log&lt;br/&gt;cfe_mpi_process_0.log&lt;br/&gt;noahowp_mpi_process_0.log&lt;br/&gt;troute_mpi_process_0.log&lt;br/&gt;ngen_mpi_prococess_1.log&lt;br/&gt;cfe_mpi_process_1.log&lt;br/&gt;noahowp_mpi_process_1.log&lt;br/&gt;troute_mpi_process_1.log, etc.]
+
+    Module --&gt; Call
+    Call --&gt; Bridge
+    Bridge --&gt; Format
+    Format --&gt; Entry
+
+    Entry -- No --&gt; Payload
+    Entry -- Yes --&gt; Config
+
+    Config -- No --&gt; Unified
+    Config -- Yes --&gt; Split</div>
+<h2 id="default-ngen-log-layout">Default ngen log layout<a class="headerlink" href="#default-ngen-log-layout" title="Permanent link">&para;</a></h2>
+<p>By default, <code>ngen</code> writes a <strong>single unified standard log file per MPI rank</strong>. Standard log messages from all modules running in that rank are written into that rank's unified log file. The EWTS ID is included in each formatted log entry so the source module can still be identified.</p>
+<table>
+<thead>
+<tr>
+<th>MPI rank</th>
+<th>Default standard log file</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank 0</td>
+<td><code>ngen_mpi_process_0.log</code></td>
+<td>Standard log messages from all modules running in rank 0.</td>
+</tr>
+<tr>
+<td>Rank 1</td>
+<td><code>ngen_mpi_process_1.log</code></td>
+<td>Standard log messages from all modules running in rank 1.</td>
+</tr>
+<tr>
+<td>Rank N</td>
+<td><code>ngen_mpi_process_N.log</code></td>
+<td>Standard log messages from all modules running in rank N.</td>
+</tr>
+</tbody>
+</table>
+<p>Payload status messages are different. They are written to a <strong>separate payload log file</strong> and are not mixed into the standard log stream.</p>
+<h2 id="split-logs-by-module">Split logs by module<a class="headerlink" href="#split-logs-by-module" title="Permanent link">&para;</a></h2>
+<p>When the <code>ngen</code> logging configuration enables <strong>split logs by module</strong>, only the <strong>standard log messages</strong> are split into individual per-rank, module-named log files. The EWTS ID determines which module-named log file receives the formatted standard log entry.</p>
+<p>Payload messages are <strong>never split by module</strong>. They continue to be written to the separate payload log file for the rank.</p>
+<h2 id="fortran-visibility-pattern">Fortran visibility pattern<a class="headerlink" href="#fortran-visibility-pattern" title="Permanent link">&para;</a></h2>
+<p>Fortran modules should keep imported EWTS symbols private and re-export only the local names used by the module. This avoids ambiguous symbol errors when multiple modules import EWTS constants.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#ifdef SACSMA_USE_EWTS</span>
+<span class="w">  </span><span class="k">use </span><span class="n">logger</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">EWTS_STATUS</span>
+<span class="w">  </span><span class="k">use </span><span class="n">ewts_module_constants</span><span class="p">,</span><span class="w"> </span><span class="k">only</span><span class="p">:</span><span class="w"> </span><span class="n">EWTS_ID_SAC_SMA</span>
+
+<span class="w">  </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">parameter</span><span class="p">,</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">LOG_LEVEL_STATUS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EWTS_STATUS</span>
+<span class="w">  </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=*</span><span class="p">),</span><span class="w"> </span><span class="k">parameter</span><span class="p">,</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">MODULE_ID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EWTS_ID_SAC_SMA</span>
+<span class="cp">#else</span>
+<span class="w">  </span><span class="kt">integer</span><span class="p">,</span><span class="w"> </span><span class="k">parameter</span><span class="p">,</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">LOG_LEVEL_STATUS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">60</span>
+<span class="w">  </span><span class="kt">character</span><span class="p">(</span><span class="nb">len</span><span class="o">=*</span><span class="p">),</span><span class="w"> </span><span class="k">parameter</span><span class="p">,</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="kd">::</span><span class="w"> </span><span class="n">MODULE_ID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;SAC_SMA&quot;</span>
+<span class="cp">#endif</span>
+</code></pre></div>
+<h2 id="practical-guidance">Practical guidance<a class="headerlink" href="#practical-guidance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identify which module produced a standard log message.</td>
+<td>Use the EWTS ID in the formatted log record.</td>
+</tr>
+<tr>
+<td>Keep all standard messages together by MPI rank.</td>
+<td>Use the default <code>ngen</code> unified logging behavior.</td>
+</tr>
+<tr>
+<td>Separate standard messages by module while preserving rank separation.</td>
+<td>Enable split logs by module in the <code>ngen</code> logging configuration.</td>
+</tr>
+<tr>
+<td>Understand why there are multiple similarly named log files.</td>
+<td>Each MPI rank writes its own log files; the rank number distinguishes them.</td>
+</tr>
+<tr>
+<td>Track payload progress or model status for RTE/status consumers.</td>
+<td>Use payload status messages; they remain in the payload status log and are not split by module.</td>
+</tr>
+<tr>
+<td>Avoid Fortran namespace collisions.</td>
+<td>Import EWTS constants privately and re-export local module names.</td>
+</tr>
+</tbody>
+</table>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../status-payloads/" class="btn btn-neutral float-left" title="Payload Logging"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../runtimes/python/" class="btn btn-neutral float-right" title="Python Runtime">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
+        </span>
+    
+    
+      <span><a href="../status-payloads/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../runtimes/python/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="../../assets/javascripts/mermaid-init.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

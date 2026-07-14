@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Overview - EWTS Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Overview";
+        var mkdocs_page_input_path = "getting-started/overview.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> EWTS Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../design-improvements/">Design Improvements</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Overview</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#choose-the-integration-path">Choose the integration path</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#module-python-example">Module Python example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#non-ngen-module-python-example">Non-ngen module Python example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-decision-checklist">Runtime decision checklist</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../installation/">Installation and Build</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../configuration/">Configuration</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Architecture</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/overview/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/message-flow/">Message Flow</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/status-payloads/">Payload Logging</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../architecture/module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/fortran/">Fortran Runtime</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Integrations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/ngen/">ngen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../integrations/rte/">RTE</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operations</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/docker/">Docker and Container Builds</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/validation/">Validation Checklist</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operations/troubleshooting/">Troubleshooting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../appendices/release-notes-v2/">Version 2.0 Release Notes</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">EWTS Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Getting Started</li>
+      <li class="breadcrumb-item active">Overview</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/getting-started/overview.md">Edit on nwm-ewts</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
+<h2 id="choose-the-integration-path">Choose the integration path<a class="headerlink" href="#choose-the-integration-path" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Runtime context</th>
+<th>Recommended integration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python module code</td>
+<td>Install ewts package and use <code>ewts.configure_existing_logger()</code>.</td>
+</tr>
+<tr>
+<td>C module code</td>
+<td>Include EWTS runtime C headers and call the C logging functions.</td>
+</tr>
+<tr>
+<td>C++ module code</td>
+<td>Include EWTS runtime C++ headers and call the C++ logging functions.</td>
+</tr>
+<tr>
+<td>Fortran module code</td>
+<td>Use the Fortran logger module wrapper and call the Fortran logging subroutines.</td>
+</tr>
+<tr>
+<td>Running under ngen</td>
+<td>Defaults to USE_EWTS=ON and modules use the ngen bridge methods.</td>
+</tr>
+<tr>
+<td>Running standalone</td>
+<td>Configure the EWTS_LOG_DIR environment variable or allow stdout fallback.</td>
+</tr>
+<tr>
+<td>Python component code</td>
+<td>Install ewts package and use <code>ewts.setup_logger()</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="module-python-example">Module Python example<a class="headerlink" href="#module-python-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="n">LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;LSTM&quot;</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ewts.helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">getenv_any</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ewts.logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_existing_logger</span>
+    <span class="n">LSTM_USE_EWTS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">LSTM_USE_EWTS</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">LSTM_USE_EWTS</span><span class="p">:</span>
+        <span class="c1"># Determine if running within ngen using EWTS. This must be done  </span>
+        <span class="c1"># here when the model actually runs vs when it is imported </span>
+        <span class="c1"># into the ngen Python interpreter to ensure the env vars are set.</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">getenv_any</span><span class="p">(</span><span class="s2">&quot;EWTS_USE_NGEN_BRIDGE&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;yes&quot;</span><span class="p">,</span> <span class="s2">&quot;on&quot;</span><span class="p">}:</span>
+            <span class="n">configure_existing_logger</span><span class="p">(</span><span class="n">LOG</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_configure_stdout_logging</span><span class="p">()</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;ewts package installed but EWTS_USE_NGEN_BRIDGE not on. Falling back to default logging.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_configure_stdout_logging</span><span class="p">()</span>
+</code></pre></div>
+<h2 id="non-ngen-module-python-example">Non-ngen module Python example<a class="headerlink" href="#non-ngen-module-python-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">ewts</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup_logger</span>
+
+<span class="n">LOG</span> <span class="o">=</span> <span class="n">setup_logger</span><span class="p">(</span>
+    <span class="n">ewts_id</span><span class="o">=</span><span class="s2">&quot;MY_COMPONENT&quot;</span><span class="p">,</span>
+    <span class="n">level</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span>
+    <span class="n">log_dir</span><span class="o">=</span><span class="s2">&quot;./logs&quot;</span><span class="p">,</span>
+    <span class="n">log_file_name</span><span class="o">=</span><span class="s2">&quot;my_component.log&quot;</span><span class="p">,</span>
+    <span class="n">running_in_ngen</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting component&quot;</span><span class="p">)</span>
+<span class="n">LOG</span><span class="o">.</span><span class="n">status</span><span class="p">(</span><span class="s1">&#39;&lt;MSG_DATA&gt;{&quot;status&quot;:&quot;STARTING&quot;,&quot;prog&quot;:0.0,&quot;msg&quot;:&quot;Starting model&quot;,&quot;modnm&quot;:&quot;MY_COMPONENT&quot;}&lt;/MSG_DATA&gt;&#39;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="runtime-decision-checklist">Runtime decision checklist<a class="headerlink" href="#runtime-decision-checklist" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Is the code running inside ngen?</td>
+<td>Determines whether messages should go through the bridge.</td>
+</tr>
+<tr>
+<td>What is the EWTS ID?</td>
+<td>Controls message attribution and module split behavior.</td>
+</tr>
+<tr>
+<td>Should logs go to a file?</td>
+<td>If not, standalone mode falls back to stdout.</td>
+</tr>
+<tr>
+<td>Are payload messages required?</td>
+<td>RTE progress visibility depends on payload messages.</td>
+</tr>
+<tr>
+<td>Is a pre-existing Python logger already created?</td>
+<td>Use <code>configure_existing_logger()</code> instead of replacing it.</td>
+</tr>
+</tbody>
+</table>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../design-improvements/" class="btn btn-neutral float-left" title="Design Improvements"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../installation/" class="btn btn-neutral float-right" title="Installation and Build">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
+        </span>
+    
+    
+      <span><a href="../../design-improvements/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../installation/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="../../assets/javascripts/mermaid-init.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

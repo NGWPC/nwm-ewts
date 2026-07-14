@@ -5,15 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>C Runtime - EWTS Documentation</title>
+    <title>Docker and Container Builds - EWTS Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "C Runtime";
-        var mkdocs_page_input_path = "runtimes/c.md";
+        var mkdocs_page_name = "Docker and Container Builds";
+        var mkdocs_page_input_path = "operations/docker.md";
         var mkdocs_page_url = null;
       </script>
     
@@ -79,24 +79,14 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Runtime Guides</span></p>
-              <ul class="current">
-                  <li class="toctree-l1"><a class="reference internal" href="../python/">Python Runtime</a>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/python/">Python Runtime</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">C Runtime</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#intended-use">Intended use</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#relationship-to-the-ngen-bridge">Relationship to the ngen bridge</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#runtime-responsibilities">Runtime responsibilities</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#payload-message-guidance">Payload message guidance</a>
-    </li>
-    </ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/c/">C Runtime</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../cpp/">C++ Runtime</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/cpp/">C++ Runtime</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../fortran/">Fortran Runtime</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../runtimes/fortran/">Fortran Runtime</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Integrations</span></p>
@@ -107,12 +97,18 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Operations</span></p>
-              <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../operations/docker/">Docker and Container Builds</a>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Docker and Container Builds</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#build-arguments">Build arguments</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#recommended-build-steps">Recommended build steps</a>
+    </li>
+    </ul>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../operations/validation/">Validation Checklist</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../validation/">Validation Checklist</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../operations/troubleshooting/">Troubleshooting</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Developer Guide</span></p>
@@ -150,10 +146,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-          <li class="breadcrumb-item">Runtime Guides</li>
-      <li class="breadcrumb-item active">C Runtime</li>
+          <li class="breadcrumb-item">Operations</li>
+      <li class="breadcrumb-item active">Docker and Container Builds</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/runtimes/c.md">Edit on nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/operations/docker.md">Edit on nwm-ewts</a>
     </li>
   </ul>
   <hr/>
@@ -161,134 +157,93 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="c-runtime-guide">C Runtime Guide<a class="headerlink" href="#c-runtime-guide" title="Permanent link">&para;</a></h1>
-<p>The C runtime library is the module-facing EWTS interface for modules written in Python that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing.</p>
-<h2 id="intended-use">Intended use<a class="headerlink" href="#intended-use" title="Permanent link">&para;</a></h2>
+                <h1 id="docker-and-container-builds">Docker and Container Builds<a class="headerlink" href="#docker-and-container-builds" title="Permanent link">&para;</a></h1>
+<p>Container builds should install a single, known EWTS version and ensure every downstream component uses that same version.</p>
+<div class="mermaid">flowchart TD
+    A[ngen dependencies image] --&gt; B[ngen-bmi-forcing image]
+    B --&gt; C[ngen image]
+    C --&gt; D[nwm-cal-mgr image]
+    C --&gt; F[nwm-fcst-mgr image]
+    E[EWTS source ref] --&gt; B
+    E --&gt; C
+    E --&gt; D
+    E --&gt; F</div>
+<h2 id="build-arguments">Build arguments<a class="headerlink" href="#build-arguments" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Use case</th>
-<th>Description</th>
+<th>Argument</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>C module logging</td>
-<td>Allow C modules to emit EWTS diagnostic messages with a module-specific EWTS ID.</td>
+<td><code>GH_ORG</code></td>
+<td>GitHub organization containing the EWTS repository.</td>
 </tr>
 <tr>
-<td>Consistent EWTS levels</td>
-<td>Use the same level semantics as the Python, C, and Fortran runtimes.</td>
+<td><code>GHCR_ORG</code></td>
+<td>GitHub Container Registry. OCI-compatible registry for storing and distributing Docker and other container images. Images are hosted under the ghcr.io domain.</td>
 </tr>
 <tr>
-<td>Payload logging</td>
-<td>Allow modules to emit structured payload messages using the documented EWTS payload convention.</td>
+<td><code>USE_EWTS</code></td>
+<td>Enables or disables EWTS build logic.</td>
 </tr>
 <tr>
-<td>ngen execution</td>
-<td>Route module messages through the EWTS integration path when the module is executed under ngen.</td>
+<td><code>EWTS_REF</code></td>
+<td>Branch, tag, or commit for EWTS source.</td>
 </tr>
 <tr>
-<td>Standalone execution</td>
-<td>Support module execution outside ngen where logging falls back to configured file output or stdout.</td>
+<td><code>EWTS_PREFIX</code></td>
+<td>Installation prefix, usually <code>/opt/ewts</code>.</td>
+</tr>
+<tr>
+<td><code>EWTS_CACHE_BUST</code></td>
+<td>Forces rebuild of EWTS layer when needed.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="relationship-to-the-ngen-bridge">Relationship to the ngen bridge<a class="headerlink" href="#relationship-to-the-ngen-bridge" title="Permanent link">&para;</a></h2>
+<h2 id="recommended-build-steps">Recommended build steps<a class="headerlink" href="#recommended-build-steps" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Item</th>
-<th>Role</th>
+<th style="text-align: right;">Step</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>C runtime library</td>
-<td>Module-facing API used by C model code.</td>
+<td style="text-align: right;">1</td>
+<td>Clone the requested EWTS ref.</td>
 </tr>
 <tr>
-<td>EWTS ngen bridge</td>
-<td>Integration layer that forwards EWTS messages into the ngen logging path.</td>
+<td style="text-align: right;">2</td>
+<td>Configure with <code>-DEWTS_WITH_NGEN=ON -DEWTS_BUILD_SHARED=ON</code>.</td>
 </tr>
 <tr>
-<td>ngen logger</td>
-<td>ngen-owned logging infrastructure.</td>
+<td style="text-align: right;">3</td>
+<td>Build and install to <code>/opt/ewts</code>.</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td>Install the generated Python wheel if Python runtime support is needed.</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td>Record git metadata in the image.</td>
+</tr>
+<tr>
+<td style="text-align: right;">6</td>
+<td>Validate that stale Python symbols are absent.</td>
 </tr>
 </tbody>
 </table>
-<div class="mermaid">flowchart LR
-    Module["C model module"] --&gt; Runtime["EWTS C runtime"]
-    Runtime --&gt; Bridge{"Running under ngen?"}
-    Bridge -- Yes --&gt; NgenBridge["EWTS ngen bridge"]
-    NgenBridge --&gt; Ngen["ngen logging path"]
-    Bridge -- No --&gt; Standalone["Standalone file or stdout output"]</div>
-<h2 id="runtime-responsibilities">Runtime responsibilities<a class="headerlink" href="#runtime-responsibilities" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Responsibility</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Level mapping</td>
-<td>Preserve EWTS log-level semantics for C module code.</td>
-</tr>
-<tr>
-<td>Module identity</td>
-<td>Include the EWTS ID so messages can be attributed to the correct module.</td>
-</tr>
-<tr>
-<td>Message forwarding</td>
-<td>Pass module messages into the EWTS native logging layer.</td>
-</tr>
-<tr>
-<td>Payload message support</td>
-<td>Allow payload messages to be emitted using the documented <code>&lt;MSG_DATA&gt;</code> wrapper and JSON fields.</td>
-</tr>
-<tr>
-<td>Standalone fallback</td>
-<td>Preserve usable output when the ngen bridge is not active.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="payload-message-guidance">Payload message guidance<a class="headerlink" href="#payload-message-guidance" title="Permanent link">&para;</a></h2>
-<p>C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Default or expectation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>status</code></td>
-<td>Payload execution state such as <code>INITIALIZING</code>, <code>IN_PROGRESS</code>, <code>COMPLETE</code>, or <code>ERROR</code>.</td>
-</tr>
-<tr>
-<td><code>prog</code></td>
-<td>Progress value when available.</td>
-</tr>
-<tr>
-<td><code>msg</code></td>
-<td>Optional human-readable status message. Empty values are allowed.</td>
-</tr>
-<tr>
-<td><code>modnm</code></td>
-<td>Module name or EWTS ID used by downstream consumers.</td>
-</tr>
-</tbody>
-</table>
-<p>Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../python/" class="btn btn-neutral float-left" title="Python Runtime"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../cpp/" class="btn btn-neutral float-right" title="C++ Runtime">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../integrations/rte/" class="btn btn-neutral float-left" title="RTE"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../validation/" class="btn btn-neutral float-right" title="Validation Checklist">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -315,10 +270,10 @@
         </span>
     
     
-      <span><a href="../python/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../../integrations/rte/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../cpp/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../validation/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

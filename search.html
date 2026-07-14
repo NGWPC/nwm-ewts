@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="./img/favicon.ico" />
     <title>EWTS Documentation</title>
     <link rel="stylesheet" href="./css/theme.css" />
@@ -14,6 +14,13 @@
       <script src="./js/html5shiv.min.js"></script>
     <![endif]-->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/c.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/cpp.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/fortran.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
       <script>hljs.highlightAll();</script> 
 </head>
 
@@ -36,45 +43,80 @@
                 <li class="toctree-l1"><a class="reference internal" href="./.">Home</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="./concepts/">Concepts</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="./design-improvements/">Design Improvements</a>
+                </li>
+              </ul>
               <p class="caption"><span class="caption-text">Getting Started</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="./.">Home</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./getting-started/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./installation/">Installation</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./getting-started/installation/">Installation and Build</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./contributing/">Contributing</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./getting-started/configuration/">Configuration</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Architecture</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="./architecture/logging-model/">Logging Model</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./architecture/overview/">Overview</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./architecture/configuration/">Configuration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./architecture/message-flow/">Message Flow</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./architecture/generated-constants/">Generated Constants</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./architecture/status-payloads/">Payload Logging</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./architecture/design-improvements/">Design improvements</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./architecture/module-identity/">Module Identity and Log Splitting</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Runtime Guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/python/">Python Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/c/">C Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/cpp/">C++ Runtime</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/fortran/">Fortran Runtime</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Integrations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="./integrations/ngen/">ngen Integration</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./integrations/ngen/">ngen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./integrations/rte/">RTE</a>
                   </li>
               </ul>
-              <p class="caption"><span class="caption-text">Language Runtime Libraries</span></p>
+              <p class="caption"><span class="caption-text">Operations</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/c/">C Runtime Library</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./operations/docker/">Docker and Container Builds</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/cpp/">C++ Runtime Library</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./operations/validation/">Validation Checklist</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/fortran/">Fortran Runtime Library</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="./runtimes/python/">Python Runtime Package</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./operations/troubleshooting/">Troubleshooting</a>
                   </li>
               </ul>
-              <p class="caption"><span class="caption-text">Tools</span></p>
+              <p class="caption"><span class="caption-text">Developer Guide</span></p>
               <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="./tools/generate-language-constants/">Language Constants Generator</a>
+                  <li class="toctree-l1"><a class="reference internal" href="./developer-guide/contributing/">Contributing</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./developer-guide/testing/">Testing</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="./reference/api/">API Reference</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./reference/configuration/">Configuration Reference</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Appendices</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="./appendices/glossary/">Glossary</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="./appendices/release-notes-v2/">Version 2.0 Release Notes</a>
                   </li>
               </ul>
       </div>
@@ -135,7 +177,7 @@
   <span class="rst-current-version" data-toggle="rst-current-version">
     
         <span>
-          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> NGWPC/nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts" class="fa fa-code-fork" style="color: #fcfcfc"> nwm-ewts</a>
         </span>
     
     
@@ -146,6 +188,8 @@
     <script>var base_url = ".";</script>
     <script src="./js/theme_extra.js"></script>
     <script src="./js/theme.js"></script>
+      <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      <script src="./assets/javascripts/mermaid-init.js"></script>
       <script src="./search/main.js"></script>
     <script>
         jQuery(function () {
