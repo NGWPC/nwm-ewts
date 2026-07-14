@@ -5,15 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="NGWPC" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Configuration Reference - EWTS Documentation</title>
+    <title>Generating Language Constants - EWTS Documentation</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Configuration Reference";
-        var mkdocs_page_input_path = "reference/configuration.md";
+        var mkdocs_page_name = "Generating Language Constants";
+        var mkdocs_page_input_path = "tools/generate-language-constants.md";
         var mkdocs_page_url = null;
       </script>
     
@@ -97,8 +97,30 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Tools</span></p>
-              <ul>
-                  <li class="toctree-l1"><a class="reference internal" href="../../tools/generate-language-constants/">Generating Language Constants</a>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Generating Language Constants</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#purpose">Purpose</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#input-specifications">Input Specifications</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#generated-outputs">Generated Outputs</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#runtime">Runtime</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ngen-integration">ngen Integration</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#running-the-generator">Running the Generator</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#validation">Validation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#generated-files">Generated Files</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#developer-notes">Developer Notes</a>
+    </li>
+    </ul>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Operations</span></p>
@@ -118,14 +140,10 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Reference</span></p>
-              <ul class="current">
-                  <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/api/">API Reference</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Configuration Reference</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#environment-variables">Environment variables</a>
-    </li>
-    </ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../reference/configuration/">Configuration Reference</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Appendices</span></p>
@@ -149,10 +167,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-          <li class="breadcrumb-item">Reference</li>
-      <li class="breadcrumb-item active">Configuration Reference</li>
+          <li class="breadcrumb-item">Tools</li>
+      <li class="breadcrumb-item active">Generating Language Constants</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/reference/configuration.md">Edit on nwm-ewts</a>
+          <a href="https://github.com/NGWPC/nwm-ewts/edit/master/docs/tools/generate-language-constants.md">Edit on nwm-ewts</a>
     </li>
   </ul>
   <hr/>
@@ -160,36 +178,121 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h1>
-<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>EWTS_USE_NGEN_BRIDGE</code></td>
-<td>Runtime signal to use ngen bridge.</td>
-</tr>
-<tr>
-<td><code>RUN_LOGS_DIR</code></td>
-<td>RTE run log output directory.</td>
-</tr>
-<tr>
-<td><code>EWTS_PREFIX</code></td>
-<td>EWTS install prefix.</td>
-</tr>
-</tbody>
-</table>
+                <h1 id="language-constants-generator">Language Constants Generator<a class="headerlink" href="#language-constants-generator" title="Permanent link">&para;</a></h1>
+<p>The <strong>Language Constants Generator</strong> creates the language-specific
+constants, lookup tables, helper APIs, log-level definitions, and
+payload status definitions used by the <strong>Error and Warning Trapping
+System (EWTS)</strong>. Rather than maintaining these files by hand, the
+generator produces them directly from the repository specification
+files, ensuring every supported language remains synchronized.</p>
+<h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
+<p>The generator provides a single source of truth for:</p>
+<ul>
+<li>Module identifiers (EWTS IDs)</li>
+<li>Module keys and descriptions</li>
+<li>Module lookup helper APIs</li>
+<li>Log level definitions</li>
+<li>Payload status definitions</li>
+</ul>
+<p>Generated outputs are produced for:</p>
+<ul>
+<li>C</li>
+<li>C++</li>
+<li>Fortran</li>
+<li>Python</li>
+<li>the <code>ngen</code> integration layer</li>
+</ul>
+<p>This eliminates duplicated definitions, prevents drift between language
+implementations, and guarantees consistent runtime behavior.</p>
+<h2 id="input-specifications">Input Specifications<a class="headerlink" href="#input-specifications" title="Permanent link">&para;</a></h2>
+<p>The generator reads the following specification files:</p>
+<hr />
+<p>File                          Purpose</p>
+<hr />
+<p><code>spec/module_registry.yaml</code>   Registered modules, EWTS IDs, languages,
+                                and descriptions</p>
+<p><code>spec/log_levels.json</code>        Standard EWTS log levels</p>
+<p><code>spec/payload_status.json</code>    Payload status string definitions</p>
+<hr />
+<p>These files are the only files that should be edited manually.</p>
+<h2 id="generated-outputs">Generated Outputs<a class="headerlink" href="#generated-outputs" title="Permanent link">&para;</a></h2>
+<p>Depending on the selected generation target, the tool creates:</p>
+<h3 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Module constants</li>
+<li>Module lookup helpers</li>
+<li>Log level definitions</li>
+<li>Payload status definitions</li>
+</ul>
+<p>for the C, C++, Fortran, and Python runtimes.</p>
+<h3 id="ngen-integration"><code>ngen</code> Integration<a class="headerlink" href="#ngen-integration" title="Permanent link">&para;</a></h3>
+<p>The <code>ngen</code> integration receives aggregate generated headers containing
+every registered module regardless of implementation language, allowing
+the bridge to translate module keys into EWTS IDs consistently.</p>
+<h2 id="running-the-generator">Running the Generator<a class="headerlink" href="#running-the-generator" title="Permanent link">&para;</a></h2>
+<p>Generate everything:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>tools/generate_language_constants.py
+</code></pre></div>
+<p>Generate only module-related files:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>tools/generate_language_constants.py<span class="w"> </span>--generate<span class="w"> </span>modules
+</code></pre></div>
+<p>Generate only log-level definitions:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>tools/generate_language_constants.py<span class="w"> </span>--generate<span class="w"> </span>log-levels
+</code></pre></div>
+<p>Generate only payload status definitions:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>tools/generate_language_constants.py<span class="w"> </span>--generate<span class="w"> </span>payload-status
+</code></pre></div>
+<p>Specify an alternate repository root:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>tools/generate_language_constants.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--repo-root<span class="w"> </span>/path/to/repository
+</code></pre></div>
+<p>Specify alternate specification files:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>tools/generate_language_constants.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--registry<span class="w"> </span>spec/module_registry.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log-levels<span class="w"> </span>spec/log_levels.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--payload-status<span class="w"> </span>spec/payload_status.json
+</code></pre></div>
+<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
+<p>Before generating files, the tool validates the specifications.</p>
+<p>Examples include:</p>
+<ul>
+<li>Required fields are present.</li>
+<li>Module keys are unique.</li>
+<li>EWTS IDs are uppercase and no more than eight characters.</li>
+<li>Languages are limited to C, C++, Fortran, and Python.</li>
+<li>Log levels contain valid integer values.</li>
+<li>Payload status definitions contain valid strings.</li>
+</ul>
+<p>Generation stops immediately if any validation error is detected.</p>
+<h2 id="generated-files">Generated Files<a class="headerlink" href="#generated-files" title="Permanent link">&para;</a></h2>
+<p>Generated files include:</p>
+<ul>
+<li>Language-specific module constants</li>
+<li>Module lookup helpers</li>
+<li>Runtime log level definitions</li>
+<li>Runtime payload status definitions</li>
+<li>Aggregate <code>ngen</code> integration headers</li>
+</ul>
+<p>Each generated file contains a banner documenting:</p>
+<ul>
+<li>Generation timestamp</li>
+<li>Source specification</li>
+<li>Specification version</li>
+<li>Specification generation timestamp (when available)</li>
+</ul>
+<p>Generated files should <strong>never</strong> be edited manually. Modify the
+specification files and rerun the generator instead.</p>
+<h2 id="developer-notes">Developer Notes<a class="headerlink" href="#developer-notes" title="Permanent link">&para;</a></h2>
+<p>The generator is intended for repository maintainers. Runtime users
+should use the generated constants rather than the generator itself.</p>
+<p>The generator is idempotent and may be safely rerun whenever the
+specification files change.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../api/" class="btn btn-neutral float-left" title="API Reference"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../appendices/glossary/" class="btn btn-neutral float-right" title="Glossary">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../integrations/rte/" class="btn btn-neutral float-left" title="RTE"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../operations/docker/" class="btn btn-neutral float-right" title="Docker and Container Builds">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -216,10 +319,10 @@
         </span>
     
     
-      <span><a href="../api/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../../integrations/rte/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../appendices/glossary/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../../operations/docker/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
