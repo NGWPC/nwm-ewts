@@ -1,6 +1,6 @@
-# Documentation Version 2.0 Release Notes
+# Documentation Version 2.1.0 Release Notes
 
-Version 2.0 is a complete replacement for the previous MkDocs documentation set.
+Version 2.1.0 is a complete replacement for the previous MkDocs documentation set.
 
 ## Major changes
 
