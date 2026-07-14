@@ -1,38 +1,53 @@
-# Fortran Runtime Library
+# Fortran Runtime Guide
 
-The EWTS Fortran runtime library provides logging support for Fortran-based hydrologic
-models running either within `ngen` or as standalone applications.
+The Fortran runtime library is the module-facing EWTS interface for modules written in Fortran that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing.
 
-## Typical use
+## Intended use
 
-A Fortran module initializes its module logger and writes messages through the
-EWTS runtime:
+| Use case | Description |
+| --- | --- |
+| Fortran module logging | Allow Fortran modules to emit EWTS diagnostic messages with a module-specific EWTS ID. |
+| Consistent EWTS levels | Use the same level semantics as the Python, C, and Fortran runtimes. |
+| Payload logging | Allow modules to emit structured payload messages using the documented EWTS payload convention. |
+| ngen execution | Route module messages through the EWTS integration path when the module is executed under ngen. |
+| Standalone execution | Support module execution outside ngen where logging falls back to configured file output or stdout. |
 
-```fortran
-use logger
-use ewts_module_constants
+## Relationship to the ngen bridge
 
-call logger_init_module(EWTS_ID_NOAH_OWP_MODULAR)
-call write_log("Initializing NOAHOWP BMI", EWTS_INFO)
+| Item | Role |
+| --- | --- |
+| C++ runtime library | Module-facing API used by C++ model code. |
+| EWTS ngen bridge | Integration layer that forwards EWTS messages into the ngen logging path. |
+| ngen logger | ngen-owned logging infrastructure. |
+
+```mermaid
+flowchart LR
+    Module["Fortran model module"] --> Runtime["EWTS Fortran runtime"]
+    Runtime --> Bridge{"Running under ngen?"}
+    Bridge -- Yes --> NgenBridge["EWTS ngen bridge"]
+    NgenBridge --> Ngen["ngen logging path"]
+    Bridge -- No --> Standalone["Standalone file or stdout output"]
 ```
 
-## Legacy wrapper compatibility
+## Runtime responsibilities
 
-Many existing Fortran modules use wrapper modules such as `noahowp_log_module`
-so large call sites do not need to change all at once.
+| Responsibility | Description |
+| --- | --- |
+| Level mapping | Preserve EWTS log-level semantics for C++ module code. |
+| Module identity | Include the EWTS ID so messages can be attributed to the correct module. |
+| Message forwarding | Pass module messages into the EWTS native logging layer. |
+| Payload message support | Allow payload messages to be emitted using the documented `<MSG_DATA>` wrapper and JSON fields. |
+| Standalone fallback | Preserve usable output when the ngen bridge is not active. |
 
-A wrapper can preserve legacy names such as `LOG_LEVEL_INFO` while mapping them
-to canonical EWTS values such as `EWTS_INFO`.
+## Payload message guidance
 
-## When running under `ngen`
+C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.
 
-Initialize the module logger before the first log message, ideally in the BMI
-`Initialize` routine. This ensures that the correct module identity and
-per-module configuration are applied from the start of execution.
+| Field | Default or expectation |
+| --- | --- |
+| `status` | Payload execution state such as `INITIALIZING`, `IN_PROGRESS`, `COMPLETE`, or `ERROR`. |
+| `prog` | Progress value when available. |
+| `msg` | Optional human-readable status message. Empty values are allowed. |
+| `modnm` | Module name or EWTS ID used by downstream consumers. |
 
-## Developer reference
-
-For implementation details, initialization guidance, and backward-compatibility
-patterns, see:
-
-- `runtime/fortran/README.md`
+Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.
