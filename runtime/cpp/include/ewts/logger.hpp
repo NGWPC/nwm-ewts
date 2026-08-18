@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include "ewts/payload_status.hpp"
 
 namespace ewts {
 
@@ -17,7 +18,8 @@ enum class LogLevel : int {
     INFO    = 20,
     WARNING = 30,
     SEVERE  = 40,
-    FATAL   = 50
+    FATAL   = 50,
+    STATUS  = 60
 };
 
 class Logger {
@@ -64,6 +66,17 @@ void Log(LogLevel level, std::string_view message);
 void Log(LogLevel level, const char* fmt, ...);
 void Log(std::string_view message, LogLevel level);
 
-}  // namespace ewts
+
+void PayloadStatus(
+    const char* ewts_id,
+    const char* status=ewts::PAYLOAD_NULL,
+    double prog=-1.0,
+    const char* msg="",
+    const char* modnm="");
+
+} // namespace ewts
+
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    ::ewts::PayloadStatus((ewts_id), (status), (prog), (msg), (modnm))
 
 #endif

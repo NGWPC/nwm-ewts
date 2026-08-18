@@ -1,45 +1,54 @@
-# C Runtime Library
+# C Runtime Guide
 
-The EWTS C runtime library provides logging support for C-based hydrologic
-modules running either within `ngen` or as standalone applications.
+The C runtime library is the module-facing EWTS interface for modules written in Python that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing.
 
-## Typical use
+## Intended use
 
-A C module defines its EWTS module ID and uses the runtime logger API:
+| Use case | Description |
+| --- | --- |
+| C module logging | Allow C modules to emit EWTS diagnostic messages with a module-specific EWTS ID. |
+| Consistent EWTS levels | Use the same level semantics as the Python, C, and Fortran runtimes. |
+| Payload logging | Allow modules to emit structured payload messages using the documented EWTS payload convention. |
+| ngen execution | Route module messages through the EWTS integration path when the module is executed under ngen. |
+| Standalone execution | Support module execution outside ngen where logging falls back to configured file output or stdout. |
 
-```c
-#include "ewts/module_constants.h"
-#define EWTS_ID EWTS_ID_CFE
-#include "ewts/logger.h"
+## Relationship to the ngen bridge
 
-int Initialize(void)
-{
-    EwtsInit(EWTS_ID, true);
-    LOG(INFO, "Initializing CFE");
-    return 0;
-}
+| Item | Role |
+| --- | --- |
+| C runtime library | Module-facing API used by C model code. |
+| EWTS ngen bridge | Integration layer that forwards EWTS messages into the ngen logging path. |
+| ngen logger | ngen-owned logging infrastructure. |
+
+```mermaid
+flowchart LR
+    Module["C model module"] --> Runtime["EWTS C runtime"]
+    Runtime --> Bridge{"Running under ngen?"}
+    Bridge -- Yes --> NgenBridge["EWTS ngen bridge"]
+    NgenBridge --> Ngen["ngen logging path"]
+    Bridge -- No --> Standalone["Standalone file or stdout output"]
 ```
 
-## When running under `ngen`
+## Runtime responsibilities
 
-Initialize the module logger before the first log message, typically from the
-module's BMI `Initialize` entry point. This ensures that the correct module ID
-and per-module configuration are applied from the beginning of execution.
+| Responsibility | Description |
+| --- | --- |
+| Level mapping | Preserve EWTS log-level semantics for C module code. |
+| Module identity | Include the EWTS ID so messages can be attributed to the correct module. |
+| Message forwarding | Pass module messages into the EWTS native logging layer. |
+| Payload message support | Allow payload messages to be emitted using the documented `<MSG_DATA>` wrapper and JSON fields. |
+| Standalone fallback | Preserve usable output when the ngen bridge is not active. |
 
-## Common log levels
+## Payload message guidance
 
-| Level | Value |
-|---|---:|
-| `NOTSET` | 0 |
-| `DEBUG` | 10 |
-| `PERFORM` | 15 |
-| `INFO` | 20 |
-| `WARNING` | 30 |
-| `SEVERE` | 40 |
-| `FATAL` | 50 |
+C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.
 
-## Developer reference
+| Field | Default or expectation |
+| --- | --- |
+| `status` | Payload execution state such as `INITIALIZING`, `IN_PROGRESS`, `COMPLETE`, or `ERROR`. |
+| `prog` | Progress value when available. |
+| `msg` | Optional human-readable status message. Empty values are allowed. |
+| `modnm` | Module name or EWTS ID used by downstream consumers. |
 
-For implementation details, macros, and runtime-specific notes, see:
+Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.
 
-- `runtime/c/README.md`

@@ -1,65 +1,54 @@
-# C++ Runtime Library
+# C++ Runtime Guide
 
-The EWTS C++ library provides logging support for C++-based hydrologic
-modules running either within `ngen` or as standalone applications.
+The C++ runtime library is the module-facing EWTS interface for modules written in C++ that supports standard EWTS levels, Payload messages, file/stdout fallback, and ngen bridge routing. It is documented separately from the ngen logger and bridge integration.
 
-## Typical use
+## Intended use
 
-A module typically binds a module ID and logs through the runtime logger API.
-Under `ngen`, the integration layer owns final output policy, while the C++
-runtime remains responsible for creating correctly attributed log messages.
+| Use case | Description |
+| --- | --- |
+| C++ module logging | Allow C++ modules to emit EWTS diagnostic messages with a module-specific EWTS ID. |
+| Consistent EWTS levels | Use the same level semantics as the Python, C, and Fortran runtimes. |
+| Payload logging | Allow modules to emit structured payload messages using the documented EWTS payload convention. |
+| ngen execution | Route module messages through the EWTS integration path when the module is executed under ngen. |
+| Standalone execution | Support module execution outside ngen where logging falls back to configured file output or stdout. |
 
-```cpp
-#ifndef SFT_LOGGER_HPP
-#define SFT_LOGGER_HPP
+## Relationship to the ngen bridge
 
-#include "ewts/module_constants.hpp"
+| Item | Role |
+| --- | --- |
+| C++ runtime library | Module-facing API used by C++ model code. |
+| EWTS ngen bridge | Integration layer that forwards EWTS messages into the ngen logging path. |
+| ngen logger | ngen-owned logging infrastructure. |
 
-// Provide the constant in the global namespace
-inline constexpr const char* EWTS_ID_SFT = ewts::modules::EWTS_ID_SFT;
-
-// Bind this module's logger identity
-#define EWTS_ID EWTS_ID_SFT
-
-#include "ewts/logger.hpp"
-
-using ewts::EwtsInit;
-using ewts::LogLevel;
-
-#endif /* SFT_LOGGER_HPP */
+```mermaid
+flowchart LR
+    Module["C++ model module"] --> Runtime["EWTS C++ runtime"]
+    Runtime --> Bridge{"Running under ngen?"}
+    Bridge -- Yes --> NgenBridge["EWTS ngen bridge"]
+    NgenBridge --> Ngen["ngen logging path"]
+    Bridge -- No --> Standalone["Standalone file or stdout output"]
 ```
 
-```cpp
-void BmiSoilFreezeThaw::
-Initialize (std::string config_file)
-{
-  // Initialize the Error, Warning and Trapping System
-#ifdef EWTS_HAVE_NGEN_BRIDGE    
-  EwtsInit(EWTS_ID_SFT, true);
-#else
-  EwtsInit(EWTS_ID_SFT, false);
-#endif
-  LOG(LogLevel::INFO, "Initializing SFT");
+## Runtime responsibilities
 
-  if (config_file.compare("") != 0 )
-      this->state = new soilfreezethaw::SoilFreezeThaw(config_file);
+| Responsibility | Description |
+| --- | --- |
+| Level mapping | Preserve EWTS log-level semantics for C++ module code. |
+| Module identity | Include the EWTS ID so messages can be attributed to the correct module. |
+| Message forwarding | Pass module messages into the EWTS native logging layer. |
+| Payload message support | Allow payload messages to be emitted using the documented `<MSG_DATA>` wrapper and JSON fields. |
+| Standalone fallback | Preserve usable output when the ngen bridge is not active. |
 
-    verbosity= this->state->verbosity;
-}
-```
+## Payload message guidance
 
-## Shared-runtime behavior
+C++ modules that report progress or execution state should use the same payload message convention as the other runtimes.
 
-The C++ runtime library is designed so multiple modules can run in the same process
-without colliding on logger identity. This is important for `ngen` execution,
-where more than one module may log within the same runtime context.
+| Field | Default or expectation |
+| --- | --- |
+| `status` | Payload execution state such as `INITIALIZING`, `IN_PROGRESS`, `COMPLETE`, or `ERROR`. |
+| `prog` | Progress value when available. |
+| `msg` | Optional human-readable status message. Empty values are allowed. |
+| `modnm` | Module name or EWTS ID used by downstream consumers. |
 
-## Common log levels
+Use a JSON serialization helper rather than manually concatenating JSON field values whenever practical. This prevents malformed payload messages caused by unescaped quotes, embedded newlines, or other special characters.
 
-The C++ runtime uses the same canonical EWTS log levels as the other language-specific Runtime Libraries.
-
-## Developer reference
-
-For implementation details and repository-local usage, see:
-
-- `runtime/cpp/README.md`

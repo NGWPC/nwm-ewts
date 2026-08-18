@@ -2,6 +2,7 @@
 #define EWTS_LOGGER_H
 
 #include <stdbool.h>
+#include "ewts/payload_status.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,7 +15,8 @@ typedef enum {
     INFO    = 20,
     WARNING = 30,
     SEVERE  = 40,
-    FATAL   = 50
+    FATAL   = 50,
+    STATUS  = 60
 } LogLevel;
 
 /* Compatibility API */
@@ -28,6 +30,17 @@ void EwtsLogModule(const char* ewts_id, LogLevel level, const char* fmt, ...);
 LogLevel EwtsGetLogLevelModule(const char* ewts_id);
 bool EwtsIsLoggingEnabledModule(const char* ewts_id);
 
+
+void EwtsPayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
+
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    EwtsPayloadStatus((ewts_id), (status), (prog), (msg), (modnm))
+    
 #ifdef __cplusplus
 }
 #endif

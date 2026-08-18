@@ -1,7 +1,15 @@
 module logger
-  use, intrinsic :: iso_c_binding, only: c_char, c_int, c_null_char
+  use, intrinsic :: iso_c_binding, only: c_char, c_int, c_double, c_null_char
   use iso_fortran_env, only: output_unit
   use ewts_log_levels, only: ewts_log_level_name
+  use ewts_payload_status, only: PAYLOAD_NULL, & 
+                                 PAYLOAD_INITTING, &
+                                 PAYLOAD_INITTED, &
+                                 PAYLOAD_STARTING, &
+                                 PAYLOAD_INPROG, &
+                                 PAYLOAD_COMPLETE, &
+                                 PAYLOAD_ERROR
+
   implicit none
   private
 
@@ -12,6 +20,7 @@ module logger
   integer, parameter, public :: EWTS_WARNING = 30
   integer, parameter, public :: EWTS_SEVERE  = 40
   integer, parameter, public :: EWTS_FATAL   = 50
+  integer, parameter, public :: EWTS_STATUS  = 60
 
   character(len=64) :: prefix
   character(len=16) :: val
@@ -31,6 +40,14 @@ module logger
 
   public :: write_log, is_logger_enabled, get_log_level, logger_init
   public :: write_log_module, is_logger_enabled_module, get_log_level_module, logger_init_module
+  public :: payload_status
+  public :: PAYLOAD_NULL
+  public :: PAYLOAD_INITTING
+  public :: PAYLOAD_INITTED
+  public :: PAYLOAD_STARTING
+  public :: PAYLOAD_INPROG
+  public :: PAYLOAD_COMPLETE
+  public :: PAYLOAD_ERROR
 
 #ifdef EWTS_HAVE_NGEN_BRIDGE
   interface
@@ -39,6 +56,17 @@ module logger
       character(kind=c_char), dimension(*) :: ewts_id
       integer(c_int), value :: level
       character(kind=c_char), dimension(*) :: message
+    end subroutine
+  end interface
+
+  interface
+    subroutine ewts_ngen_payload_status(ewts_id, status, prog, msg, modnm) bind(C, name="ewts_ngen_payload_status")
+        import :: c_char, c_double
+        character(kind=c_char), dimension(*) :: ewts_id
+        character(kind=c_char), dimension(*) :: status
+        real(c_double), value :: prog
+        character(kind=c_char), dimension(*) :: msg
+        character(kind=c_char), dimension(*) :: modnm
     end subroutine
   end interface
 #endif
@@ -110,6 +138,7 @@ contains
     case ("WARN","WARNING"); parse_level = EWTS_WARNING
     case ("ERROR","SEVERE"); parse_level = EWTS_SEVERE
     case ("FATAL","CRITICAL"); parse_level = EWTS_FATAL
+    case ("STATUS"); parse_level = EWTS_STATUS
     case ("NOTSET","NONE"); parse_level = EWTS_NOTSET
     case default; parse_level = EWTS_NOTSET
     end select
@@ -124,6 +153,7 @@ contains
     case (EWTS_WARNING); level_name_padded = "WARNING"
     case (EWTS_SEVERE); level_name_padded = "SEVERE "
     case (EWTS_FATAL); level_name_padded = "FATAL  "
+    case (EWTS_STATUS); level_name_padded = "STATUS "
     case default; level_name_padded = "NOTSET "
     end select
   end function level_name_padded
@@ -399,18 +429,13 @@ contains
 
     lenv = 0
     call get_environment_variable("EWTS_LOG_DIR", length=lenv)
-    if (lenv > 0) then
-      call get_environment_variable("EWTS_LOG_DIR", dir)
-      dir = adjustl(trim(dir))
-    else
-      call get_environment_variable("HOME", length=lenv)
-      if (lenv > 0) then
-        call get_environment_variable("HOME", dir)
-        dir = adjustl(trim(dir))//"/run_logs"
-      else
-        dir = "./run_logs"
-      end if
+    if (lenv <= 0) then
+        g_loggers(idx)%unit_log = -1
+        return
     end if
+
+    call get_environment_variable("EWTS_LOG_DIR", dir)
+    dir = adjustl(trim(dir))
 
     call execute_command_line("mkdir -p " // trim(dir), wait=.true.)
     call utc_timestamp_compact(ts)
@@ -489,4 +514,27 @@ contains
     end if
   end subroutine write_log_module
 
+  subroutine payload_status(ewts_id, status, prog, msg, modnm)
+    use, intrinsic :: iso_c_binding, only: c_char, c_double, c_null_char
+    implicit none
+
+    character(len=*), intent(in) :: ewts_id
+    character(len=*), intent(in) :: status
+    real(c_double), intent(in) :: prog
+    character(len=*), intent(in) :: msg
+    character(len=*), intent(in) :: modnm
+
+#ifdef EWTS_HAVE_NGEN_BRIDGE
+    if (is_ngen_active()) then
+      call ewts_ngen_payload_status( &
+        trim(ewts_id) // c_null_char, &
+        trim(status) // c_null_char, &
+        prog, &
+        trim(msg) // c_null_char, &
+        trim(modnm) // c_null_char)
+        return
+    end if
+#endif
+  end subroutine payload_status
+  
 end module logger

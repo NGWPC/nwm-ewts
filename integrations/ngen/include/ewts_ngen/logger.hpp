@@ -8,6 +8,13 @@
 #include <string>
 #include <unordered_map>
 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS // intentionally want the old behavior
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+#include "ewts_ngen/ngen_module_constants.hpp"
+#include "ewts/payload_status.hpp"
+
 /*
  * NGEN integration logger.
  *
@@ -26,6 +33,7 @@ enum class LogLevel : int {
     WARNING = 30,
     SEVERE  = 40,
     FATAL   = 50,
+    STATUS  = 60
 };
 
 class Logger {
@@ -51,6 +59,17 @@ class Logger {
 
     bool IsLoggingEnabled() const { return loggingEnabled; }
     LogLevel GetLogLevel() const { return logLevel; }
+    
+    static void LogPayload(
+        const char* ewts_id,
+        const std::string& status=std::string(),
+        double             prog=-1.0,
+        const std::string& msg=std::string(),
+        const std::string& modnm=std::string());
+
+    static bool LogPayload(
+        const char* ewts_id,
+        const char* json_message);
 
   private:
     Logger() = default;
@@ -61,7 +80,7 @@ class Logger {
     // init/policy
     void InitIfNeeded();
     bool ReadConfigFromResultsDir(const std::string& resultsDir);
-    void ApplyEnvVars(bool set);
+    void ConfigureEnvVars(bool set);
 
     // log file
     void SetupLogFile(const std::string& resultsDir);
@@ -89,6 +108,7 @@ class Logger {
     bool        loggingEnabled  = true;
     bool        splitLogsByModule = false;
 
+    // Normal EWTS/ngen log stream.
     std::fstream logFile;
     std::string  logFileDir;
     std::string  logFilePath;
@@ -102,11 +122,24 @@ class Logger {
     // config-derived per-module levels (stable key -> LogLevel)
     std::unordered_map<std::string, LogLevel> moduleLogLevels;
 
+    // Lazily opened payload stream.
+    // This is never split by module and is created only on first payload write.
+    std::ofstream payloadFile;
+    std::string payloadFilePath;
+
+    bool PayloadFileReady(void) const;
+    bool OpenPayloadFileIfNeeded(void);
+
     // environment
     
 };
 
-// Placed here to ensure the class is declared before setting this preprocessor symbol
+// Placed here to ensure the class is declared before setting these preprocessor symbols
 #define LOG Logger::Log
+#define GetLogLevel() Logger::GetLogger()->GetLogLevel()
+#define IsLoggingEnabled() Logger::GetLogger()->IsLoggingEnabled()
+
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    Logger::LogPayload((ewts_id), (status), (prog), (msg), (modnm))
 
 #endif /* EWTS_NGEN_LOGGER_HPP */

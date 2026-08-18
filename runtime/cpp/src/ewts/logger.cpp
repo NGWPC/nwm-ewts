@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -22,6 +23,16 @@ __attribute__((weak))
 #endif
 void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
+#endif
+void ewts_ngen_payload_status(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
+
 namespace ewts {
 
 static constexpr const char* EV_NGEN_RESULTS_DIR = "NGEN_RESULTS_DIR";
@@ -32,6 +43,7 @@ static constexpr const char* EV_EWTS_LOG_LEVEL   = "EWTS_LOG_LEVEL";
 static int  g_mpiRank = -1;
 
 using ewts_ngen_log_fn = void(*)(const char*, int, const char*);
+using ewts_ngen_payload_status_fn = void(*)(const char*, const char*, double, const char*, const char*);
 
 static std::mutex g_registry_mtx;
 static std::unordered_map<std::string, std::unique_ptr<Logger>> g_loggers;
@@ -45,6 +57,13 @@ static bool is_ngen_active() {
 static ewts_ngen_log_fn resolve_ngen_log() {
     if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_log")) {
         return reinterpret_cast<ewts_ngen_log_fn>(sym);
+    }
+    return nullptr;
+}
+
+static ewts_ngen_payload_status_fn resolve_ngen_payload_status() {
+    if (void* sym = dlsym(RTLD_DEFAULT, "ewts_ngen_payload_status")) {
+        return reinterpret_cast<ewts_ngen_payload_status_fn>(sym);
     }
     return nullptr;
 }
@@ -83,6 +102,7 @@ static LogLevel parse_level(const char* v) {
     if (s == "WARN" || s == "WARNING") return LogLevel::WARNING;
     if (s == "ERROR" || s == "SEVERE") return LogLevel::SEVERE;
     if (s == "FATAL" || s == "CRITICAL") return LogLevel::FATAL;
+    if (s == "STATUS") return LogLevel::STATUS;
     return LogLevel::NOTSET;
 }
 
@@ -94,6 +114,7 @@ static const char* level_name_padded(LogLevel lvl) {
         case 30: return "WARNING";
         case 40: return "SEVERE ";
         case 50: return "FATAL  ";
+        case 60: return "STATUS ";
         default: return "NOTSET ";
     }
 }
@@ -143,13 +164,19 @@ bool Logger::have_ngen_bridge() const {
 void Logger::open_standalone_file() {
     if (out_.is_open()) return;
 
+    // EV_EWTS_LOG_DIR is a fallback env var not set by ngen
+    // RTE or the user can set this when running standalone
+    // to direct where the logs should be written
     const char* dir = std::getenv(EV_EWTS_LOG_DIR);
-    std::string log_dir;
-    if (dir && *dir) log_dir = dir;
-    else {
-        const char* home = std::getenv("HOME");
-        log_dir = (home && *home) ? (std::string(home) + "/run_logs") : "./run_logs";
+
+    // New default: if EWTS_LOG_DIR is not explicitly set,
+    // do not open a file. Log() will fall back to std::cout.
+    if (!(dir && *dir)) {
+        path_.clear();
+        return;
     }
+
+    std::string log_dir = dir;
 
     std::filesystem::create_directories(log_dir);
 
@@ -213,7 +240,7 @@ void Logger::init_once() {
         std::cout << oss.str() << std::flush;
     }
     else
-        std::cout << "EWTS " << ewts_id_ << " logging standalone" << std::endl;
+        std::cout << prefix << ewts_id_ << " logging standalone" << std::endl;
 }
 
 bool Logger::IsLoggingEnabled() {
@@ -320,4 +347,23 @@ void Log(std::string_view message, LogLevel level) {
     CurrentLogger().Log(level, message);
 }
 
+void PayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm)
+{
+    static ewts_ngen_payload_status_fn g_payload_status =
+        resolve_ngen_payload_status();
+
+    if (is_ngen_active() && g_payload_status) {
+        g_payload_status(
+            ewts_id ? ewts_id : "",
+            status ? status : "",
+            prog,
+            msg ? msg : "",
+            modnm ? modnm : "");
+    }
+}
 }

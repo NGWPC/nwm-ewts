@@ -18,6 +18,16 @@ __attribute__((weak))
 #endif
 void ewts_ngen_log(const char* ewts_id, int level, const char* message);
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
+#endif
+void ewts_ngen_payload_status(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
+
 #define EV_NGEN_RESULTS_DIR "NGEN_RESULTS_DIR"
 #define EV_EWTS_ENABLED     "EWTS_ENABLED"
 #define EV_EWTS_LOG_DIR     "EWTS_LOG_DIR"
@@ -111,6 +121,7 @@ static LogLevel parse_level(const char* v) {
     if (streq_ci(s, "WARN") || streq_ci(s, "WARNING")) return WARNING;
     if (streq_ci(s, "ERROR") || streq_ci(s, "SEVERE")) return SEVERE;
     if (streq_ci(s, "FATAL") || streq_ci(s, "CRITICAL")) return FATAL;
+    if (streq_ci(s, "STATUS") || streq_ci(s, "STATUS")) return STATUS;
     if (streq_ci(s, "NOTSET") || streq_ci(s, "NONE")) return NOTSET;
 
     return NOTSET;
@@ -124,6 +135,7 @@ static const char* level_name_padded(LogLevel lvl) {
         case WARNING: return "WARNING";
         case SEVERE:  return "SEVERE ";
         case FATAL:   return "FATAL  ";
+        case STATUS:  return "STATUS ";
         default:      return "NOTSET ";
     }
 }
@@ -228,23 +240,16 @@ static void open_standalone_file(ewts_logger_state* st) {
     char log_dir[1024];
     char ts[32];
     const char* dir;
-    const char* home;
     int n;
 
     if (st->file) return;
 
     dir = getenv(EV_EWTS_LOG_DIR);
-    if (dir && dir[0] != '\0') {
-        snprintf(log_dir, sizeof(log_dir), "%s", dir);
-    } else {
-        home = getenv("HOME");
-        if (home && home[0] != '\0') {
-            snprintf(log_dir, sizeof(log_dir), "%s/run_logs", home);
-        } else {
-            snprintf(log_dir, sizeof(log_dir), "./run_logs");
-        }
+    if (!(dir && dir[0] != '\0')) {
+        st->file = stdout;
+        return;
     }
-
+    snprintf(log_dir, sizeof(log_dir), "%s", dir);
     (void)mkdir_p(log_dir);
     utc_timestamp_compact(ts, sizeof(ts));
 
@@ -468,4 +473,16 @@ LogLevel GetLogLevel(void) {
 
 bool IsLoggingEnabled(void) {
     return EwtsIsLoggingEnabledModule("EWTS");
+}
+
+void EwtsPayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm)
+{
+    if (is_ngen_active() && ewts_ngen_payload_status) {
+        ewts_ngen_payload_status(ewts_id, status, prog, msg, modnm);
+    }
 }

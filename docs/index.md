@@ -1,143 +1,59 @@
-# Error and Warning Trapping System (EWTS)
+# EWTS Documentation Version 2.1.0
 
-The EWTS is a multi-language logging framework for hydrologic modules that run
-within `ngen` or as standalone applications. It provides consistent log levels,
-module identities, and environment-driven configuration across C, C++, Fortran,
-and Python.
+The Error and Warning Trapping System (EWTS) is the shared logging and status-reporting layer used by modules and components throughout the ngen ecosystem. It provides a consistent logging interface for Python, C, C++, and Fortran applications while supporting standalone execution, ngen integration, and Runtime Environment (RTE) deployments.
+
+Version 2.1.0 documents the current implementation and the architectural improvements introduced since the original release. These improvements simplify integration, improve maintainability, and provide consistent logging behavior across all supported languages and execution environments.
+
+This manual replaces the original MkDocs documentation with a cohesive implementation-oriented guide. It preserves the practical navigation structure where possible, removes duplication, and organizes the documentation around how EWTS is built, configured, integrated, operated, and extended.
+
+## Key Version 2.1.0 Improvements
+- Removed Python lazy binding, simplifying logger initialization and eliminating deferred runtime configuration.
+- Added optional EWTS integration for ngen builds, allowing EWTS support to be enabled or excluded at build time without modifying application code.
+- Introduced Payload logging, providing a standardized mechanism for communicating progress and model state to the Runtime Environment (RTE).
+- Unified logging behavior across Python, C, C++, and Fortran runtime libraries, ensuring consistent log levels, formatting, and module identification.
+- Improved ngen bridge integration, allowing all supported languages to produce consistent EWTS log output through a common interface.
+- Simplified standalone operation, providing automatic logging to module-specific log files or standard output when the ngen bridge is unavailable.
 
 ## What EWTS provides
 
-- centralized logging behavior when running under `ngen`
-- consistent log formatting across supported language-specific Runtime Libraries
-- stable module identifiers generated from a shared registry
-- standalone runtime logging outside the `ngen` environment
-- per-rank log files for MPI execution
-- unified or split-by-module log output under `ngen`
+| Capability | Purpose |
+| --- | --- |
+| Centralized logging | Formatting and log file handling controlled by the ngen logger. Modules use the ngen bridge log method. |
+| MPI Aware Logging |  Log messages written to per-rank log files |
+| Standard log levels | Common numeric severity model across Python, C, C++, and Fortran integrations. |
+| Standard log messages | Human readable, timestamped, module, log level identified log messages. |
+| Payload log messages | Structured progress and status reporting for RTE-facing machine consumable payload state. |
+| Module-scoped logging | Allows standard logs to be unified or split by module EWTS IDs. Payload logs always unified.|
+| ngen bridge integration | Routes module log messages through ngen when running with the EWTS ngen bridge. |
+| Standalone fallback | Modules write to configured log files or stdout when not running with the EWTS ngen bridge. |
+| Multi-language support | Provides integration points for Python, C, C++, and Fortran modules and components. |
 
-## Reliability and Design Improvements
+## NGEN log message flow
 
-EWTS has been redesigned to address limitations observed in earlier logging
-implementations, particularly in multi-language and parallel environments.
+```mermaid
+flowchart LR
+    Runtime[Modules] --> Py[Python runtime]
+    Runtime --> C[C runtime]
+    Runtime --> Cpp[C++ runtime]
+    Runtime --> F90[Fortran runtime]
+    Py --> Bridge[ngen bridge]
+    C --> Bridge
+    Cpp --> Bridge
+    F90 --> Bridge
+    Bridge --> Ngen[ngen logger]
+    Ngen --> Logs[Standard Logs]
+    Ngen --> Payload[Payload Logs]
+    Ngen --> Stdout[Stdout Logs]
+    Logs --> RTE
+    Payload --> RTE
+    Stdout --> RTE
+```
 
-Key improvements include:
+## Recommended reading paths
 
-- environment-driven configuration
-- safe, non-global logging state
-- MPI-aware logging with per-rank files
-- consistent behavior across all supported languages
-- centralized, reusable logging implementation
-
-For more details, see:
-- [Design Improvements](architecture/design-improvements.md)
-
-## Choose the right documentation
-
-This documentation site is user-facing. It focuses on behavior, configuration,
-and runtime usage.
-
-For implementation details and repository-local development guidance, use the
-`README.md` files located in the corresponding runtime, integration, or tooling
-subdirectory.
-
-## Terminology: Integrations vs Runtime Libraries
-
-EWTS separates its functionality into two distinct layers to support both 
-modules and the systems that run or prepare them.
-
-### Runtime Libraries
-
-**Runtime Libraries** are language-specific libraries used directly by module
-implementations. As development continues, these libraries are intended for
-broader reuse across workflow components to minimize duplication and ensure
-consistent behavior. Initial development has focused on hydrologic modules
-used by ngen.
-
-These are the components that:
-
-- are linked or imported into module code (Fortran, C, C++, Python)
-- provide logging APIs such as `write_log(...)`
-- manage module identity and log levels
-- operate in both standalone and integrated environments
-
-Examples:
-
-- Fortran modules using `use logger`
-- C/C++ code calling EWTS logging APIs
-- Python packages importing EWTS logging utilities
-
----
-
-### Integrations
-
-**Integrations** provide the bridge between EWTS and higher-level systems that
-run, coordinate, or prepare module executions.
-
-These components:
-
-- connect EWTS logging to a system’s execution module
-- route log messages into system-specific outputs
-- configure behavior based on the runtime environment
-- coordinate logging across multiple modules and MPI ranks (when applicable)
-- ensure consistent logging across the entire workflow
-
-Examples include:
-
-- Integration with **ngen** for executing hydrologic modules
-- Future integration of workflow components such as:
-    - Model Setup Workflow Manager
-    - Calibration Manager
-    - Evaluation Manager
-
-These workflow systems prepare inputs, manage runs, or analyze results
-without being part of ngen itself, but still use EWTS to ensure consistent
-logging behavior.
-
----
-
-### Why This Separation Exists
-
-This separation allows EWTS to:
-
-- support multiple programming languages consistently
-- run both **inside ngen** and **standalone**
-- support end-to-end workflows beyond just module execution
-- avoid coupling module code to any specific framework
-- provide a single, consistent logging interface across all components
-
----
-
-### Summary
-
-| Layer | Used By | Purpose |
-|------|--------|--------|
-| Runtime Libraries | modules | Provide logging APIs and behavior |
-| Integrations | Systems and workflow components | Connect EWTS to execution and workflow environments |
-
-
-## Documentation map
-
-### Getting started
-
-- [Installation](installation.md)
-- [Contributing](contributing.md)
-
-### Architecture
-
-- [Logging module](architecture/logging-model.md)
-- [Configuration](architecture/configuration.md)
-- [Generated constants](architecture/generated-constants.md)
-
-### Integrations
-
-- [ngen integration](integrations/ngen.md)
-
-### Libraries and Package
-
-- [C library](runtimes/c.md)
-- [C++ library](runtimes/cpp.md)
-- [Fortran library](runtimes/fortran.md)
-- [Python package](runtimes/python.md)
-
-### Tools
-
-- [Language constants generator](tools/generate-language-constants.md)
+| Audience | Path |
+| --- | --- |
+| Model developer | Concepts → Runtime guide → Payload status messages → Examples. |
+| ngen integrator | Architecture → ngen Integration → Docker Builds → Troubleshooting. |
+| RTE/operator | Configuration → RTE Integration → Validation Checklist. |
+| Maintainer | Design Improvements → Developer Guide → API Reference. |

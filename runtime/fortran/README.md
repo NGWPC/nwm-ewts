@@ -1,102 +1,73 @@
+
 # EWTS Fortran Runtime
 
-The EWTS Fortran runtime provides logging support for Fortran-based hydrologic
-models running within **ngen** or as standalone applications.
+The The Error and Warning Trapping System (EWTS) Fortran runtime provides 
+logging support for Fortran modules. When linked with the optional ngen 
+bridge, log messages are forwarded into the ngen logging infrastructure. 
+Otherwise, log messages are written directly by the Fortran runtime, using 
+the directory specified by the `EWTS_LOG_DIR` environment variable when 
+available, or stdout if no usable log directory is configured.
 
-It provides:
+It supports two logging modes:
 
-- consistent log formatting
-- module-specific log identities
-- environment-configurable logging
-- compatibility with legacy Fortran code
+- **ngen-integrated logging**, where messages are forwarded through the optional ngen bridge.
+- **standalone logging**, where messages are written directly by the CPP runtime without the ngen bridge.
 
-The runtime implementation is located under:
+The runtime shares the same logging model, log levels, payload format, and
+environment-driven configuration as the C, C++, and Python EWTS runtime
+libraries.
 
-```text
-runtime/fortran/
-```
+## Directory role
 
----
+The implementation in `runtime/fortran/` provides:
 
-## Important: Initialization When Running with ngen
+- Native Fortran logger implementation.
+- Generated EWTS module IDs, log level, and payload status constants.
+- Module-aware logging APIs.
+- Optional bridge support for `ngen`.
 
-When EWTS is used within **ngen**, it is important to initialize the module
-logger **before the first log message is written**.
+## Design goals
 
-The recommended place to do this is inside the module’s **BMI `Initialize`**
-routine.
+The Fortran runtime is designed to provide:
 
-This ensures:
+- Consistent behavior across all EWTS runtime libraries.
+- Module-scoped logging.
+- Environment-driven configuration.
+- Transparent forwarding to the ngen logging infrastructure.
+- Stdout fallback outside ngen.
 
-- the correct **module ID** is bound to the logger
-- module-specific configuration such as `<MODULE>_LOGLEVEL` is applied
-- the first log lines are attributed to the intended module
-- logging routes correctly when ngen integration is active
+## Shared-runtime behavior
 
-If logging occurs before initialization, messages may be associated with the
-default fallback logger rather than the intended module.
+Multiple modules may execute within the same process. Each logger is therefore
+associated with a specific EWTS module ID rather than being process-global,
+ensuring that log messages are correctly attributed regardless of the execution
+environment.
 
-Example:
-
-```fortran
-subroutine initialize()
-  use logger
-  use ewts_module_constants
-
-  call logger_init_module(EWTS_ID_SMP)
-  call write_log("Initializing Soil Moisture Profiles module", EWTS_INFO)
-end subroutine initialize
-```
-
-For legacy wrappers, the wrapper should ensure the module-specific init occurs
-before the first forwarded log call.
-
----
-
-## Basic Usage
-
-Typical usage inside a Fortran module:
+## Public API
 
 ```fortran
-use logger
-use ewts_module_constants
+call logger_init(id)
+call logger_init_module(id)
 
-call logger_init_module(EWTS_ID_NOAH_OWP_MODULAR)
-call write_log("Initializing NOAHOWP BMI", EWTS_INFO)
+call write_log(msg, lvl)
+call write_log_module(id, msg, lvl)
+
+enabled = is_logger_enabled()
+enabled = is_logger_enabled_module(id)
+
+lvl = get_log_level()
+lvl = get_log_level_module(id)
+
+call payload_status(ewts_id, status, prog, msg, modnm)
 ```
 
----
+Prefer the module-specific APIs so log messages are attributed to the correct
+EWTS module ID.
 
-## Legacy Compatibility
-
-Many legacy Fortran models use wrapper modules such as:
-
-```text
-noahowp_log_module
-```
-
-These wrappers forward logging calls into the EWTS runtime so older code does
-not have to change its logging interface.
-
-Example:
-
-```fortran
-use noahowp_log_module
-
-call write_log("Starting Noah OWP model", LOG_LEVEL_INFO)
-```
-
-In this pattern, the wrapper should call the module-specific EWTS APIs under
-the hood so logging remains module-safe.
-
----
-
-## Log Levels
-
-The Fortran runtime uses the same log level values as the other runtimes:
+## Log levels
 
 | Level | Value |
-|---|---:|
+|-------|------:|
 | `EWTS_NOTSET` | 0 |
 | `EWTS_DEBUG` | 10 |
 | `EWTS_PERFORM` | 15 |
@@ -104,170 +75,137 @@ The Fortran runtime uses the same log level values as the other runtimes:
 | `EWTS_WARNING` | 30 |
 | `EWTS_SEVERE` | 40 |
 | `EWTS_FATAL` | 50 |
+| `EWTS_STATUS` | 60 |
 
-Example:
+`EWTS_STATUS` is reserved for structured payload messages.
+
+## Standard logging
 
 ```fortran
-call write_log("Some value below threshold. Using default of 1", EWTS_WARNING)
+use logger
+use ewts_module_constants
+
+call logger_init_module(EWTS_ID_NOAH_OWP_MODULAR)
+
+call write_log_module( &
+    EWTS_ID_NOAH_OWP_MODULAR, &
+    "Initializing NOAHOWP BMI", &
+    EWTS_INFO)
 ```
 
----
+Initialize the logger before writing the first log message.
 
-## Initialization Model
+## Payload logging
 
-The Fortran runtime supports module-specific entry points such as:
+```fortran
+call payload_status( &
+    EWTS_ID_NOAH_OWP_MODULAR, &
+    PAYLOAD_INITTING, &
+    0.1d0, &
+    "Initializing NOAHOWP BMI", &
+    "NOAHOWP")
+```
 
-- `logger_init_module(id)`
-- `write_log_module(id, msg, lvl)`
-- `get_log_level_module(id)`
-- `is_logger_enabled_module(id)`
+| Argument | Meaning |
+|----------|---------|
+| `ewts_id` | EWTS ID used in the payload log prefix. |
+| `status` | Payload status such as `INITIALIZING` or `IN_PROGRESS`. |
+| `prog` | Progress value, typically `0.0d0` through `1.0d0`. |
+| `msg` | Human-readable payload message. |
+| `modnm` | Module/component name written into the JSON payload. |
 
-These should be preferred for true multi-module safety.
+## Payload status constants
 
-The older fallback APIs remain available, but they route through the generic
-fallback logger and are less suitable for shared-runtime ngen scenarios.
+| Constant | String Value | Description |
+|----------|--------------|-------------|
+| `PAYLOAD_NULL` | `"NULL"` | No status assigned. |
+| `PAYLOAD_INITTING` | `"INITIALIZING"` | Module initialization in progress. |
+| `PAYLOAD_INITTED` | `"INITIALIZED"` | Module initialization complete. |
+| `PAYLOAD_STARTING` | `"STARTING"` | Module execution beginning. |
+| `PAYLOAD_INPROG` | `"IN_PROGRESS"` | Module execution in progress. |
+| `PAYLOAD_COMPLETE` | `"COMPLETE"` | Module execution completed successfully. |
+| `PAYLOAD_ERROR` | `"ERROR"` | Module execution terminated with an error. |
 
----
+Payload logging is active only when `EWTS_USE_NGEN_BRIDGE` is enabled and the
+optional bridge function is available. Otherwise, `payload_status()` performs
+no action.
 
-## Environment Configuration
+## Submodule wrapper pattern
 
-Logging behavior is controlled by environment variables:
+The recommended integration pattern is to provide a small module-specific wrapper
+that:
+
+- Imports EWTS only when the model is built with EWTS support.
+- Maps local log-level constants to EWTS constants.
+- Initializes EWTS once before the first log message.
+- Forwards log messages using `write_log_module()`.
+- Forwards payload messages using `payload_status()`.
+- Falls back to simple stdout logging when EWTS is not enabled.
+
+For an example wrapper implementation, see `noah-owp-modular/src/noahowpLogger.f90`
+
+## Runtime relationship to `ngen`
+
+When `EWTS_USE_NGEN_BRIDGE` is enabled and the optional bridge library is
+available, log messages and STATUS payloads are forwarded to the ngen logging
+infrastructure.
+
+## Environment configuration
 
 | Variable | Purpose |
-|---|---|
-| `NGEN_RESULTS_DIR` | `ngen` results directory |
-| `EWTS_ENABLED` | Enables or disables logging |
-| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
-| `EWTS_RANK` | MPI rank (set by ngen) for submodules to read; if unset, assumes non-MPI |
-| `<MODULE>_LOGLEVEL` | Per-module override |
-| `EWTS_LOG_DIR` | Standalone log directory |
+|----------|---------|
+| `EWTS_USE_NGEN_BRIDGE` | Enables logging through the ngen bridge when set to a truthy value (`1`, `true`, `yes`, `on`, etc.). |
+| `EWTS_ENABLED` | Enables or disables logging. |
+| `EWTS_LOG_LEVEL` | Default log level; `INFO` if undefined. |
+| `EWTS_RANK` | Optional MPI rank used in initialization messages. |
+| `<MODULE>_LOGLEVEL` | Per-module log level override. |
 
----
+## Runtime behavior
 
-## MPI Behavior
+### ngen bridge
 
-When running under MPI, each rank writes to a separate file, for example:
+When the bridge is enabled, log messages and payloads are forwarded through the
+ngen logging infrastructure.
 
-```text
-logs/ngen_mpi_process_0.log
-logs/ngen_mpi_process_1.log
+### Stdout fallback
+
+If the bridge is not enabled or unavailable, log messages are written to
+standard output. Payload logging becomes a no-op.
+
+## MPI behavior
+
+Initialization messages are prefixed with the MPI rank when `EWTS_RANK` is
+defined. Runtime log routing is handled by the selected backend.
+
+## CMakeLists.txt
+
+Example
+
+```cmake
+option(USE_EWTS "Build NOAHOWP with EWTS logging" ON)
+message("-- NOAHOWP CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- NOAHOWP compiled with EWTS logging")
+
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
+
+    # Always use EWTS runtime logger for Fortran
+    target_link_libraries(surfacebmi PRIVATE ewts::ewts_fortran)
+
+    # Built with ngen bridge
+    target_link_libraries(surfacebmi PRIVATE 
+        ewts::ewts_ngen_bridge
+    )
+    target_compile_definitions(surfacebmi PRIVATE NOAHOWP_USE_EWTS)
+else()
+    message("-- NOAHOWP compiled with stdout fallback logging")
+endif()
 ```
 
-This prevents file I/O collisions across ranks.
+## Related documentation
 
-
-In split-by-module mode, the file stem changes but the per-rank rule remains.
-
----
-
-## Module CMakeList Update
-```
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
-
-# Always use EWTS runtime logger for Fortran
-target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_fortran)
-
-# Built with ngen bridge
-target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(<cmake lib name> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
-```
-
-## Standalone Mode
-
-Outside the ngen results environment, standalone logging uses the following
-directory priority:
-
-1. `EWTS_LOG_DIR`
-2. `$HOME/run_logs`
-3. `./run_logs`
-
----
-
-## ngen Integration
-
-When ngen integration is active, the Fortran runtime can route messages through
-the EWTS → ngen bridge so log output follows the same behavior as the C, C++,
-and Python runtimes.
-
----
-
-# Backward Compatibility with Existing Modules
-
-Many existing Fortran modules use legacy log level constants such as:
-
-- `LOG_LEVEL_DEBUG`
-- `LOG_LEVEL_INFO`
-- `LOG_LEVEL_WARNING`
-- `LOG_LEVEL_ERROR`
-- `LOG_LEVEL_FATAL`
-
-To avoid modifying large amounts of existing code, modules can define lightweight wrappers or aliases that map legacy names to EWTS levels.
-
----
-
-## Recommended Mapping
-
-Modules should map their legacy constants to EWTS equivalents:
-
-```fortran
-integer, parameter :: LOG_LEVEL_DEBUG   = EWTS_DEBUG
-integer, parameter :: LOG_LEVEL_INFO    = EWTS_INFO
-integer, parameter :: LOG_LEVEL_WARNING = EWTS_WARNING
-integer, parameter :: LOG_LEVEL_ERROR   = EWTS_SEVERE
-integer, parameter :: LOG_LEVEL_FATAL   = EWTS_FATAL
-```
-
-Optional (if used):
-
-```fortran
-integer, parameter :: LOG_LEVEL_PERFORM = EWTS_PERFORM
-```
-
----
-
-## Rationale
-
-This approach:
-
-- Preserves existing module code without widespread edits
-- Maintains a **single source of truth** for log levels (EWTS runtime)
-- Ensures consistent behavior across:
-  - Fortran
-  - C / C++
-  - Python
-- Allows gradual migration to native EWTS constants if desired
-
----
-
-## Usage Guidance
-
-- New code should prefer `EWTS_*` constants directly
-- Existing code may continue using `LOG_LEVEL_*` via mappings
-- Avoid redefining numeric values independently in modules
-
----
-
-## Summary
-
-| Legacy Name        | EWTS Equivalent |
-|-------------------|-----------------|
-| LOG_LEVEL_DEBUG   | EWTS_DEBUG      |
-| LOG_LEVEL_INFO    | EWTS_INFO       |
-| LOG_LEVEL_WARNING | EWTS_WARNING    |
-| LOG_LEVEL_ERROR   | EWTS_SEVERE     |
-| LOG_LEVEL_FATAL   | EWTS_FATAL      |
-
----
-
-## Notes
-
-- `EWTS_SEVERE` is equivalent to traditional `ERROR`
-- `EWTS_PERFORM` is an optional intermediate level for performance logging
-- All numeric values align with EWTS cross-language standards
-
-## Documentation
-
-For a user-focused overview and integration guidance, see:
-
-- MkDocs: `docs/runtimes/fortran.md`
+- `runtime/c/README.md`
+- `runtime/cpp/README.md`
+- `runtime/python/README.md`
+- `integrations/ngen/README.md`

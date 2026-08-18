@@ -1,70 +1,75 @@
 # EWTS C Runtime
 
-This directory contains the developer-facing documentation for the EWTS C
-runtime library.
+The Error and Warning Trapping System (EWTS) C runtime provides logging 
+support for C modules. When linked with the optional ngen bridge, log 
+messages are forwarded into the ngen logging infrastructure. Otherwise, 
+log messages are written directly by the C runtime, using the directory
+specified by the `EWTS_LOG_DIR` environment variable when available, or
+stdout if no usable log directory is configured.
 
-The C runtime library provides a lightweight logging API for C-based hydrologic modules
-running either within `ngen` or as standalone applications.
+It supports two logging modes:
+
+- **ngen-integrated logging**, where messages are forwarded through the optional ngen bridge.
+- **standalone logging**, where messages are written directly by the C runtime without the ngen bridge.
+
+This runtime shares the same logging model, log levels, and environment-driven
+configuration as the CPP, Fortran, and Python EWTS runtime libraries.
 
 ## Directory role
 
 The implementation in `runtime/c/` provides:
 
-- the C logging API and macros
-- generated C module keys and module constants
-- standalone runtime logging support
-- forwarding into the `ngen` bridge when that environment is active
-
-Installed headers are typically exposed under `include/ewts/`.
+- Native C logger implementation.
+- Generated C module IDs, log-level constants, and payload status constants.
+- Module-scoped logger identity for shared runtime execution.
+- Optional bridging support for `ngen`-integrated execution.
 
 ## Design goals
 
-The C runtime library is designed to preserve:
+The C runtime is designed to provide:
 
-- module-scoped logger identity
-- consistency with the other EWTS language-specific Runtime Libraries
-- safe behavior in MPI environments
-- low-friction use from existing C modules
+- Consistent behavior with the C, Fortran, and Python runtime libraries.
+- Module-scoped logger identity when multiple modules execute in the same process.
+- Environment-driven configuration.
+- Transparent forwarding of log messages to the ngen logging infrastructure when available.
+- A standalone fallback that works without ngen or the ngen bridge library.
 
-## Typical usage
+## Shared-runtime behavior
 
-```c
-#include "ewts/module_constants.h"
-#define EWTS_ID EWTS_ID_CFE
-#include "ewts/logger.h"
+Multiple modules may execute within the same process. Each logger is therefore
+associated with a specific EWTS module ID rather than being process-global,
+ensuring that log messages are correctly attributed regardless of the execution
+environment.
 
-int Initialize(void)
-{
-    EwtsInit(EWTS_ID, true);
-    LOG(INFO, "Initializing CFE");
-    return 0;
-}
+Installed headers are exposed under `include/ewts/`.
+
+## Public API
+
+``` c
+void EwtsInit(const char* ewts_id, bool ewts_ngen);
+void Log(LogLevel level, const char* fmt, ...);
+LogLevel GetLogLevel(void);
+bool IsLoggingEnabled(void);
+
+void EwtsLogModule(const char* ewts_id, LogLevel level, const char* fmt, ...);
+LogLevel EwtsGetLogLevelModule(const char* ewts_id);
+bool EwtsIsLoggingEnabledModule(const char* ewts_id);
+
+void EwtsPayloadStatus(
+    const char* ewts_id,
+    const char* status,
+    double prog,
+    const char* msg,
+    const char* modnm);
+
+#define PAYLOAD_STATUS(ewts_id, status, prog, msg, modnm) \
+    EwtsPayloadStatus((ewts_id), (status), (prog), (msg), (modnm))
 ```
-
-The `EWTS_ID` macro binds convenience macros such as `LOG(...)` to a specific
-module identity.
-
-## Initialization under `ngen`
-
-When a C module runs under `ngen`, initialize the module logger before the first
-log message. The best location is typically the BMI `Initialize` entry point.
-
-This ensures that:
-
-- the correct module ID is bound before logging starts
-- `<MODULE>_LOGLEVEL` overrides are applied correctly
-- the first log lines are attributed to the intended module
-- runtime messages route correctly when the bridge is active
-
-If a module logs before initialization, messages may be attributed to the
-fallback logger rather than the intended module-specific logger.
 
 ## Log levels
 
-The C runtime uses the same canonical EWTS levels as the rest of the framework:
-
 | Level | Value |
-|---|---:|
+|-------|------:|
 | `NOTSET` | 0 |
 | `DEBUG` | 10 |
 | `PERFORM` | 15 |
@@ -72,66 +77,134 @@ The C runtime uses the same canonical EWTS levels as the rest of the framework:
 | `WARNING` | 30 |
 | `SEVERE` | 40 |
 | `FATAL` | 50 |
+| `STATUS` | 60 |
+
+`STATUS` is reserved for structured payload messages when running under
+`ngen`.
+
+## Payload status constants
+
+The C runtime provides generated payload status string constants in `ewts/payload_status.h`.
+
+| Constant | Value |
+|---|---|
+| `PAYLOAD_NULL` | `"NULL"` |
+| `PAYLOAD_INITTING` | `"INITIALIZING"` |
+| `PAYLOAD_INITTED` | `"INITIALIZED"` |
+| `PAYLOAD_STARTING` | `"STARTING"` |
+| `PAYLOAD_INPROG` | `"IN_PROGRESS"` |
+| `PAYLOAD_COMPLETE` | `"COMPLETE"` |
+| `PAYLOAD_ERROR` | `"ERROR"` |
+
+## Standard logging
+
+Consumer logger.h
+```c
+#include "ewts/module_constants.h"
+#include "ewts/logger.h"
+#include "ewts/log_levels.h"
+
+#define CFE_MODULE_ID EWTS_ID_CFE
+
+#define Log(level, ...) EwtsLogModule(CFE_MODULE_ID, (level), __VA_ARGS__)
+#define LOG(level, ...) EwtsLogModule(CFE_MODULE_ID, (level), __VA_ARGS__)
+#define GetLogLevel() EwtsGetLogLevelModule(CFE_MODULE_ID)
+#define IsLoggingEnabled() EwtsIsLoggingEnabledModule(CFE_MODULE_ID)
+```
+
+Consumer module
+
+``` c
+#include "logger.h"
+
+LOG(INFO, "Initializing CFE");
+```
+
+## Payload logging
+
+C modules can write structured STATUS payloads with `PAYLOAD_STATUS(...)`:
+
+``` c
+PAYLOAD_STATUS(
+    EWTS_ID_CFE,
+    "INITIALIZING",
+    0.1,
+    "In bmi_cfe::Initialize()",
+    "CFE");
+```
+
+Arguments:
+
+| Argument | Meaning |
+|----------|---------|
+| `ewts_id` | EWTS ID used in the payload log prefix |
+| `status` | Payload status value, such as `INITIALIZING` or `IN_PROGRESS` |
+| `prog` | Progress value, usually `0.0` through `1.0` but can be any value|
+| `msg` | Human-readable payload message |
+| `modnm` | Module/component name written into the JSON payload |
+
+Payload logging is active only when `EWTS_USE_NGEN_BRIDGE` is enabled
+and the optional `ewts_ngen_payload_status` bridge function is
+available. Otherwise, `EwtsPayloadStatus()` performs no action.
 
 ## Environment configuration
 
-The C runtime participates in the same environment-driven configuration model as
-other Runtime Libraries:
-
 | Variable | Purpose |
-|---|---|
-| `NGEN_RESULTS_DIR` | `ngen` results directory |
-| `EWTS_ENABLED` | Enables or disables logging |
-| `EWTS_LOG_LEVEL` | Default log level (INFO if undefined) |
-| `EWTS_RANK` | MPI rank (set by ngen) for submodules to read; if unset, assumes non-MPI |
-| `<MODULE>_LOGLEVEL` | Per-module override |
-| `EWTS_LOG_DIR` | Standalone log directory |
+|----------|---------|
+| `EWTS_USE_NGEN_BRIDGE` | Enables logging through the ngen bridge when set to a truthy value (`1`, `true`, `yes`, `on`, etc.) |
+| `EWTS_ENABLED` | Enables or disables logging. |
+| `EWTS_LOG_LEVEL` | Default log level; `INFO` if undefined. |
+| `EWTS_RANK` | Optional MPI rank used in initialization messages. |
+| `<MODULE>_LOGLEVEL` | Per-module log level override. |
+
+## Runtime behavior
+
+### ngen bridge
+
+When `EWTS_USE_NGEN_BRIDGE` is enabled and the optional
+`ewts_ngen_bridge` library is linked into the application, log messages
+are forwarded through the ngen logging infrastructure.
+
+STATUS payload messages are also forwarded through the bridge using
+`EwtsPayloadStatus()`.
+
+### Stdout fallback
+
+If the ngen bridge is not enabled or is unavailable, all log messages
+are written to standard output.
+
+This provides a simple fallback for running libraries outside of ngen
+while preserving the same logging API.
 
 ## MPI behavior
 
-EWTS writes one log file per MPI rank. It does not merge all ranks into a single
-shared file.
+When running under MPI, the runtime prefixes initialization messages with the
+MPI rank when `EWTS_RANK` is defined. Runtime log routing is handled by the
+selected logging backend (ngen bridge or stdout fallback).
 
-Examples under `ngen` include:
+## CMakeLists.txt
+Example
 
-```text
-logs/ngen_mpi_process_0.log
-logs/ngen_mpi_process_1.log
+``` cmake
+option(USE_EWTS "Build CFE with EWTS logging" ON)
+message("-- CFE CMakeLists USE_EWTS = ${USE_EWTS}")
+if(USE_EWTS)
+    message("-- CFE compiled with EWTS logging")
+
+    # --- EWTS (installed from nwm-ewts) ---
+    find_package(ewts CONFIG REQUIRED)
+
+    # Always use EWTS runtime logger for C
+    target_link_libraries(cfebmi PRIVATE ewts::ewts_c)
+
+    # Built with ngen bridge
+    target_link_libraries(cfebmi PRIVATE ewts::ewts_ngen_bridge)
+    target_compile_definitions(cfebmi PRIVATE CFE_USE_EWTS)
+else()
+    message("-- CFE compiled with stdout fallback logging")
+endif()
 ```
-
-This prevents file I/O collisions across ranks.
-
-In split-by-module mode, the file stem changes but the per-rank rule remains.
-
-
-## Module CMakeList Update
-
-```
-# --- EWTS (installed from nwm-ewts) ---
-find_package(ewts CONFIG REQUIRED)
-
-# Always use EWTS runtime logger for C
-target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_c)
-
-# Built with ngen bridge
-target_link_libraries(<cmake lib name> PRIVATE ewts::ewts_ngen_bridge)
-target_compile_definitions(<cmake lib name> PRIVATE EWTS_HAVE_NGEN_BRIDGE)
-
-# Code requires minimum of C99 standard to compile
-set_target_properties(<cmake lib name> PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
-```
-
-## Standalone Mode
-
-Outside the ngen results environment, standalone logging uses the following
-directory priority:
-
-1. `EWTS_LOG_DIR`
-2. `$HOME/run_logs`
-3. `./run_logs`
 
 ## Related documentation
 
-- user-facing overview: `docs/runtimes/c.md`
-- framework-level configuration: `docs/architecture/configuration.md`
-- `ngen` integration details: `integrations/ngen/README.md`
+-   `integrations/ngen/README.md`
